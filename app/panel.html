@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'">
+  <title>浮窗看盘</title>
+  <link rel="stylesheet" href="ui.css">
+  <script src="panel.js" defer></script>
+</head>
+<body class="panel-page">
+  <header class="titlebar">
+    <img class="mark" src="MarketFloat.ico" alt="" draggable="false">
+    <span class="app-name">浮窗看盘</span>
+    <div class="window-actions">
+      <button class="window-action" id="settings-button" aria-label="设置" aria-expanded="false" title="设置">⋯</button>
+      <button class="window-action" id="collapse" aria-label="收起为悬浮图标" title="收起为悬浮图标（Esc）"><span class="shrink-icon"></span></button>
+      <button class="window-action" id="hide" aria-label="隐藏到系统托盘" title="隐藏到系统托盘">−</button>
+    </div>
+  </header>
+  <aside id="settings" class="settings" aria-label="设置" hidden>
+    <label><span>面板置顶</span><input type="checkbox" id="pinned"></label>
+    <label><span>红涨绿跌</span><input type="checkbox" id="red-up"></label>
+    <label><span>刷新频率</span><select id="interval"><option value="15">15 秒</option><option value="30">30 秒</option><option value="60">60 秒</option></select></label>
+    <button class="plain" id="sources-button">行情来源</button>
+  </aside>
+  <main>
+    <nav class="filters" aria-label="按市场筛选">
+      <button type="button" data-market="all" aria-pressed="true">全部</button>
+      <button type="button" data-market="cn" aria-pressed="false">A 股</button>
+      <button type="button" data-market="us" aria-pressed="false">美股</button>
+      <button type="button" data-market="crypto" aria-pressed="false">加密货币</button>
+    </nav>
+    <section class="section-heading" aria-labelledby="watchlist-title">
+      <h1 id="watchlist-title">自选行情</h1>
+      <span id="count"></span>
+      <button id="add" class="primary" type="button" title="添加自选（Ctrl+N）">＋ 添加</button>
+    </section>
+    <div class="column-headings" aria-hidden="true">
+      <span>标的</span><span title="本次启动后最近 32 次成功取价">走势</span><span>最新价</span><span>涨跌幅</span><span></span>
+    </div>
+    <ul id="watchlist" class="watchlist" aria-label="行情列表"></ul>
+    <template id="row-template">
+      <li class="quote-row">
+        <div class="identity"><strong class="name"></strong><span class="code"></span></div>
+        <canvas class="sparkline" width="98" height="44" aria-hidden="true"></canvas>
+        <div class="pricing"><strong class="price"></strong><span class="currency"></span></div>
+        <div class="change"></div>
+        <button type="button" class="row-menu" aria-label="标的选项">⋯</button>
+      </li>
+    </template>
+  </main>
+  <footer>
+    <div class="connection"><span id="indicator" class="indicator"></span><span id="status" role="status">正在连接行情源…</span></div>
+    <span id="frequency">30 秒刷新</span>
+    <button id="refresh" type="button" title="刷新行情（F5）">↻ 刷新</button>
+  </footer>
+  <dialog id="add-dialog">
+    <form id="add-form">
+      <h2>添加自选</h2>
+      <label for="new-market">市场</label>
+      <select id="new-market">
+        <option value="cn">A 股</option><option value="us">美股</option><option value="crypto">加密货币</option>
+      </select>
+      <label for="new-code">代码</label>
+      <input id="new-code" type="text" maxlength="24" autocomplete="off" spellcheck="false" required>
+      <p id="add-hint" class="hint" aria-live="polite"></p>
+      <div class="dialog-actions"><button id="add-cancel" type="button">取消</button><button class="primary" type="submit">添加</button></div>
+    </form>
+  </dialog>
+  <dialog id="sources">
+    <form method="dialog">
+      <h2>行情来源</h2>
+      <p>A 股和美股使用腾讯财经，涨跌幅相对昨收，报价可能延迟。</p>
+      <p>加密货币的 USD 交易对来自 Coinbase，USDT 来自 Binance。涨跌幅按 24 小时统计。</p>
+      <p>将鼠标悬停在标的上可查看取数时间及错误信息。走势取自本次运行期间的报价。</p>
+      <div class="dialog-actions"><button class="primary">关闭</button></div>
+    </form>
+  </dialog>
+</body>
+</html>

@@ -1,0 +1,12 @@
+{
+  "name": "marketfloat-desktop",
+  "productName": "MarketFloat",
+  "version": "2.0.0",
+  "private": true,
+  "main": "app/main.cjs",
+  "scripts": {
+    "start": "electron .",
+    "check": "node --check app/main.cjs && node --check app/preload.cjs && node --check app/quotes.cjs && node --check app/panel.js && node --check app/orb.js"
+  },
+  "devDependencies": { "electron": "45.3.0" }
+}

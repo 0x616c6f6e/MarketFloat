@@ -1,0 +1,87 @@
+name: Windows build and release
+
+on:
+  push:
+    branches: ['**']
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    name: Package Windows x64
+    runs-on: windows-2025
+    timeout-minutes: 15
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          package-manager-cache: false
+      - name: Check version and application syntax
+        id: version
+        shell: pwsh
+        run: |
+          $version = (Get-Content -Raw package.json | ConvertFrom-Json).version
+          if ($version -notmatch '^\d+\.\d+\.\d+$') { throw 'Invalid package.json version.' }
+          if ($env:GITHUB_REF_TYPE -eq 'tag' -and $env:GITHUB_REF_NAME -cne "v$version") {
+            throw "Tag $env:GITHUB_REF_NAME must match package.json version v$version."
+          }
+          "version=$version" >> $env:GITHUB_OUTPUT
+          npm run check
+      - name: Build and verify portable ZIP
+        shell: pwsh
+        run: .\scripts\Pack.ps1
+      - uses: actions/upload-artifact@v7
+        with:
+          name: MarketFloat-windows-x64
+          path: |
+            dist/MarketFloat-*-win-x64.zip
+            dist/SHA256SUMS.txt
+          compression-level: 0
+          if-no-files-found: error
+
+  release:
+    name: Publish GitHub Release
+    needs: package
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    concurrency:
+      group: release-${{ github.ref }}
+      cancel-in-progress: false
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: MarketFloat-windows-x64
+          path: release-files
+      - name: Verify and publish release assets
+        working-directory: release-files
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+          VERSION: ${{ needs.package.outputs.version }}
+        run: |
+          zip="MarketFloat-${VERSION}-win-x64.zip"
+          sha256sum -c SHA256SUMS.txt
+          if release=$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json isDraft,assets); then
+            if jq -e '.isDraft' <<< "$release" >/dev/null; then
+              gh release upload "$TAG" "$zip" SHA256SUMS.txt --repo "$GITHUB_REPOSITORY" --clobber
+              gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --draft=false
+            else
+              jq -e --arg zip "$zip" 'any(.assets[]; .name == $zip) and any(.assets[]; .name == "SHA256SUMS.txt")' <<< "$release" >/dev/null
+              echo "Release $TAG already has both assets."
+            fi
+          else
+            gh release create "$TAG" "$zip" SHA256SUMS.txt --repo "$GITHUB_REPOSITORY" --verify-tag --generate-notes
+          fi
