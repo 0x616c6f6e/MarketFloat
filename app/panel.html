@@ -51,12 +51,24 @@
     <span id="frequency">30 秒刷新</span>
     <button id="refresh" type="button" title="刷新行情（F5）">↻ 刷新</button>
   </footer>
-  <aside id="chart-preview" class="chart-preview" role="tooltip" hidden>
-    <strong></strong>
+  <aside id="chart-preview" class="chart-preview" aria-label="K 线预览" hidden>
+    <div class="preview-heading">
+      <strong></strong>
+      <div class="preview-periods" role="group" aria-label="K 线周期">
+        <button type="button" data-chart-period="day" aria-pressed="true">日 K</button>
+        <button type="button" data-chart-period="week" aria-pressed="false">周 K</button>
+        <button type="button" data-chart-period="month" aria-pressed="false">月 K</button>
+      </div>
+    </div>
     <div class="preview-subtitle"></div>
-    <p class="preview-message"></p>
-    <canvas class="preview-canvas" role="img" hidden></canvas>
-    <div class="preview-ohlc" hidden><span></span><span></span><span></span><span></span></div>
+    <div class="preview-plot">
+      <p class="preview-message" role="status"></p>
+      <canvas class="preview-canvas" role="img" hidden></canvas>
+    </div>
+    <div class="preview-stats">
+      <div class="preview-ohlc" hidden><span></span><span></span><span></span><span></span></div>
+      <div class="preview-volume"></div>
+    </div>
     <p class="preview-quote"></p>
     <div class="preview-hint">双击打开 TradingView</div>
   </aside>

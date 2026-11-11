@@ -3,7 +3,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { randomUUID } = require('node:crypto');
 const { symbol, defaults, getQuotes } = require('./quotes.cjs');
-const { getHistory, usListing, tradingViewUrl } = require('./charts.cjs');
+const { getHistory, usListing, tradingViewUrl, isChartPeriod } = require('./charts.cjs');
 const {
   sourceGroups, sourceGroup, parseSource, defaultProxy, parseProxy, setNetworkProxy,
   parseMonitor, loadMonitors, evaluateMonitors,
@@ -72,6 +72,7 @@ function load() {
     panel: saved?.panel, orb: saved?.orb, sources,
     proxy: parseProxy(saved?.proxy).value ?? defaultProxy,
     monitors: loadMonitors(saved?.monitors, watchlist),
+    chartPeriod: isChartPeriod(saved?.chartPeriod) ? saved.chartPeriod : 'day',
   };
 }
 
@@ -92,7 +93,7 @@ function snapshot() {
     })),
     interval: state.interval, pinned: state.pinned, redUp: state.redUp, refreshing, updatedAt,
     errors: errors.size, current: current.size, saveFailed,
-    sources: state.sources, proxy: state.proxy, monitors: state.monitors,
+    sources: state.sources, proxy: state.proxy, monitors: state.monitors, chartPeriod: state.chartPeriod,
   };
 }
 
@@ -161,19 +162,33 @@ function clearQuote(key) {
   history.delete(key);
 }
 
-function chartPreview(key) {
+function chartListing(key) {
+  if (state.cached[key]?.listing) return state.cached[key].listing;
+  for (const entry of chartHistory.get(key)?.values() ?? []) {
+    if (entry.result?.listing) return entry.result.listing;
+  }
+  return '';
+}
+
+function chartPreview(key, period = state.chartPeriod) {
   const item = state.watchlist.find(entry => entry.key === key);
   if (!item) return { error: '此标的已移出自选。' };
+  if (!isChartPeriod(period)) return { error: 'K 线周期无效。' };
   if (proxyChanging) return { error: '代理正在切换，请稍后再试。' };
-  const existing = chartHistory.get(key);
+  let periods = chartHistory.get(key);
+  if (!periods) {
+    periods = new Map();
+    chartHistory.set(key, periods);
+  }
+  const existing = periods.get(period);
   if (existing && existing.until > Date.now()) return existing.promise;
   const entry = { until: Infinity, result: null };
-  entry.promise = getHistory(quoteNetwork.fetch.bind(quoteNetwork), item, state.cached[key]?.listing).then(result => {
+  entry.promise = getHistory(quoteNetwork.fetch.bind(quoteNetwork), item, chartListing(key), period).then(result => {
     entry.result = result;
     entry.until = Date.now() + (result.error ? 8000 : 120000);
     return result;
   });
-  chartHistory.set(key, entry);
+  periods.set(period, entry);
   return entry.promise;
 }
 
@@ -184,48 +199,55 @@ function isTradingViewUrl(value) {
   } catch { return false; }
 }
 
-async function showTradingView(item) {
+async function showTradingView(item, period = state.chartPeriod) {
   if (closing) return;
-  const existing = chartWindows.get(item.key);
-  if (existing) {
-    if (existing.isMinimized()) existing.restore();
-    existing.show();
-    existing.focus();
-    return;
+  let entry = chartWindows.get(item.key);
+  if (!entry) {
+    const area = screen.getDisplayMatching(panel.getBounds()).workArea;
+    const width = Math.min(1220, area.width);
+    const height = Math.min(800, area.height);
+    const chart = new BrowserWindow({
+      x: Math.round(area.x + (area.width - width) / 2), y: Math.round(area.y + (area.height - height) / 2),
+      width, height, title: item.code + ' · TradingView', icon: iconPath, backgroundColor: '#131722',
+      autoHideMenuBar: true,
+      webPreferences: { session: chartNetwork, sandbox: true, contextIsolation: true, nodeIntegration: false },
+    });
+    chart.setMenu(null);
+    chart.once('closed', () => chartWindows.delete(item.key));
+    chart.on('page-title-updated', event => event.preventDefault());
+    chart.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+    entry = { chart, period: null, request: null, listing: '' };
+    chartWindows.set(item.key, entry);
   }
-  const area = screen.getDisplayMatching(panel.getBounds()).workArea;
-  const width = Math.min(1220, area.width);
-  const height = Math.min(800, area.height);
-  const chart = new BrowserWindow({
-    x: Math.round(area.x + (area.width - width) / 2), y: Math.round(area.y + (area.height - height) / 2),
-    width, height, title: item.code + ' · TradingView', icon: iconPath, backgroundColor: '#131722',
-    autoHideMenuBar: true,
-    webPreferences: { session: chartNetwork, sandbox: true, contextIsolation: true, nodeIntegration: false },
-  });
-  chart.setMenu(null);
-  chartWindows.set(item.key, chart);
-  chart.once('closed', () => chartWindows.delete(item.key));
-  chart.on('page-title-updated', event => event.preventDefault());
-  chart.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
-  let listing = state.cached[item.key]?.listing ?? chartHistory.get(item.key)?.result?.listing;
+  const { chart } = entry;
+  if (chart.isMinimized()) chart.restore();
+  chart.show();
+  chart.focus();
+  if (entry.period === period) return;
+  entry.period = period;
+  const request = Symbol();
+  entry.request = request;
+  let listing = entry.listing || chartListing(item.key);
   if (item.market === 'us') {
     const fetch = (url, options) => quoteNetwork.fetch(url, {
       ...options, signal: AbortSignal.any([options.signal, AbortSignal.timeout(3000)]),
     });
     listing = await usListing(fetch, item, listing).catch(() => '');
   }
-  if (chart.isDestroyed()) return;
-  const url = tradingViewUrl(item, listing);
+  if (chart.isDestroyed() || entry.request !== request) return;
+  entry.listing = listing;
+  const url = tradingViewUrl(item, listing, period);
   try {
     await chart.loadURL(url);
   } catch {
-    if (chart.isDestroyed() || closing) return;
+    if (chart.isDestroyed() || closing || entry.request !== request) return;
     const result = await dialog.showMessageBox(chart, {
       type: 'info', title: 'TradingView', message: '暂时无法加载 TradingView 图表。',
       buttons: ['在默认浏览器打开', '关闭'], defaultId: 0, cancelId: 1,
     }).catch(() => null);
+    if (chart.isDestroyed() || closing || entry.request !== request) return;
     if (result?.response === 0) await shell.openExternal(url).catch(() => {});
-    if (!chart.isDestroyed()) chart.close();
+    if (!chart.isDestroyed() && entry.request === request) chart.close();
   }
 }
 
@@ -444,10 +466,10 @@ function registerIpc() {
   const fromPanel = (event, action) => event.sender === panel.webContents && action();
   const fromOrb = (event, action) => event.sender === orb.webContents && action();
   ipcMain.handle('snapshot', event => fromPanel(event, snapshot));
-  ipcMain.handle('chart:preview', (event, key) => fromPanel(event, () => chartPreview(key)));
-  ipcMain.on('chart:open', (event, key) => fromPanel(event, () => {
+  ipcMain.handle('chart:preview', (event, key, period) => fromPanel(event, () => chartPreview(key, period)));
+  ipcMain.on('chart:open', (event, key, period) => fromPanel(event, () => {
     const item = state.watchlist.find(entry => entry.key === key);
-    if (item) void showTradingView(item);
+    if (item) void showTradingView(item, isChartPeriod(period) ? period : state.chartPeriod);
   }));
   ipcMain.handle('source:save', (event, group, input) => fromPanel(event, () => changeSource(group, input)));
   ipcMain.handle('source:test', (event, group, input, code) => fromPanel(event, () => testSource(group, input, code)));
@@ -486,6 +508,10 @@ function registerIpc() {
     if (key === 'interval' && intervals.includes(value)) { state.interval = value; schedule(); }
     else if (key === 'pinned' && typeof value === 'boolean') { state.pinned = value; panel.setAlwaysOnTop(value); }
     else if (key === 'redUp' && typeof value === 'boolean') state.redUp = value;
+    else if (key === 'chartPeriod' && isChartPeriod(value)) {
+      if (state.chartPeriod === value) return;
+      state.chartPeriod = value;
+    }
     else return;
     save();
     publish();

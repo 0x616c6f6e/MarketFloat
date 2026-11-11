@@ -121,6 +121,7 @@ function render() {
 
 function setState(value) {
   state = value;
+  window.chartPreview.setPeriod(value.chartPeriod);
   window.marketFloatSettings.update(value);
   render();
 }
@@ -178,6 +179,7 @@ document.addEventListener('keydown', event => {
   if (event.key === 'F5') { event.preventDefault(); api.refresh(); }
   if (document.querySelector('dialog[open]')) return;
   if (event.key === 'Escape') {
+    if (window.chartPreview.hide()) return;
     if (!$('#settings-page').hidden) window.marketFloatSettings.close(true);
     else api.collapse();
   }
