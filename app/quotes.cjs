@@ -1,4 +1,5 @@
 const { TextDecoder } = require('node:util');
+const { sourceGroup, sourceUrl, jsonField } = require('./preferences.cjs');
 
 const names = { cn: 'A 股', us: '美股', crypto: '加密货币' };
 const validMarkets = Object.keys(names);
@@ -34,7 +35,7 @@ function symbol(market, input, name = '') {
 }
 
 function number(value) {
-  if (value === null || value === undefined || String(value).trim() === '') return null;
+  if (typeof value !== 'number' && (typeof value !== 'string' || value.trim() === '')) return null;
   const result = Number(value);
   return Number.isFinite(result) ? result : null;
 }
@@ -60,7 +61,7 @@ function tencentQuotes(data) {
 }
 
 async function request(fetch, url, options) {
-  const response = await fetch(url, { ...options, signal: AbortSignal.timeout(8500) });
+  const response = await fetch(url, { credentials: 'omit', ...options, signal: AbortSignal.timeout(8500) });
   if (!response.ok) {
     const message = [400, 404].includes(response.status) ? '行情源无此代码' : '行情源暂不可用（HTTP ' + response.status + '）';
     throw new QuoteError(message);
@@ -107,17 +108,37 @@ async function crypto(fetch, item) {
   }
 }
 
-async function getQuotes(fetch, items) {
-  const shares = items.filter(item => item.market !== 'crypto');
-  const pairs = items.filter(item => item.market === 'crypto');
+async function customQuote(fetch, item, config) {
+  try {
+    const url = sourceUrl(config.url, item);
+    const response = await request(fetch, url, { headers: { Accept: 'application/json' }, redirect: 'error' });
+    const data = await response.json();
+    const price = number(jsonField(data, config.price));
+    if (!(price > 0)) return [item.key, { error: '最新价字段不存在或不是正数' }];
+    const name = jsonField(data, config.name);
+    const change = number(jsonField(data, config.change)) ?? percentage(price, number(jsonField(data, config.previous)));
+    return [item.key, { quote: { price, name: typeof name === 'string' ? name.slice(0, 80) : undefined, change, readAt: Date.now() } }];
+  } catch (error) {
+    return [item.key, { error: explain(error) }];
+  }
+}
+
+async function getQuotes(fetch, items, sources = {}) {
+  const builtIn = items.filter(item => !sources[sourceGroup(item)]);
+  const shares = builtIn.filter(item => item.market !== 'crypto');
+  const singles = items.filter(item => item.market === 'crypto' || sources[sourceGroup(item)]);
   const jobs = [];
   for (let i = 0; i < shares.length; i += 30) jobs.push(stocks(fetch, shares.slice(i, i + 30)));
-  if (pairs.length) {
+  if (singles.length) {
     jobs.push((async () => {
       const results = [];
       let i = 0;
-      const workers = Array.from({ length: Math.min(8, pairs.length) }, async () => {
-        while (i < pairs.length) results.push(await crypto(fetch, pairs[i++]));
+      const workers = Array.from({ length: Math.min(8, singles.length) }, async () => {
+        while (i < singles.length) {
+          const item = singles[i++];
+          const custom = sources[sourceGroup(item)];
+          results.push(await (custom ? customQuote(fetch, item, custom) : crypto(fetch, item)));
+        }
       });
       await Promise.all(workers);
       return results;

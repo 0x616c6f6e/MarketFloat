@@ -1,20 +1,27 @@
-const { app, BrowserWindow, Tray, Menu, ipcMain, screen, net, nativeImage } = require('electron');
+const { app, BrowserWindow, Tray, Menu, ipcMain, screen, session, nativeImage } = require('electron');
 const fs = require('node:fs');
 const path = require('node:path');
+const { randomUUID } = require('node:crypto');
 const { symbol, defaults, getQuotes } = require('./quotes.cjs');
+const {
+  sourceGroups, sourceGroup, parseSource, defaultProxy, parseProxy, setNetworkProxy,
+  parseMonitor, loadMonitors, evaluateMonitors,
+} = require('./preferences.cjs');
 
 const iconPath = path.join(__dirname, 'MarketFloat.ico');
 const iconSize = 62;
 const panelWidth = 464;
 const panelHeight = 670;
 const intervals = [15, 30, 60];
-let panel, orb, tray, state, drag, timer, statePath;
+let panel, orb, tray, state, drag, timer, statePath, quoteNetwork, activeRefresh;
 let view = 'panel';
 let closing = false;
 let refreshing = false;
 let pending = false;
 let updatedAt = 0;
 let saveFailed = false;
+let proxyChanging = false;
+let quoteRevision = 0;
 const errors = new Map();
 const current = new Set();
 const history = new Map();
@@ -51,10 +58,17 @@ function load() {
     const quote = saved?.cached?.[item.key];
     if (Number.isFinite(quote?.price) && quote.price > 0) cached[item.key] = quote;
   }
+  const sources = {};
+  for (const group of sourceGroups) {
+    const { value } = parseSource(saved?.sources?.[group]);
+    if (value) sources[group] = value;
+  }
   return {
     watchlist, cached, interval: intervals.includes(saved?.interval) ? saved.interval : 30,
     pinned: saved?.pinned !== false, redUp: saved?.redUp !== false,
-    panel: saved?.panel, orb: saved?.orb,
+    panel: saved?.panel, orb: saved?.orb, sources,
+    proxy: parseProxy(saved?.proxy).value ?? defaultProxy,
+    monitors: loadMonitors(saved?.monitors, watchlist),
   };
 }
 
@@ -69,11 +83,13 @@ function save() {
 function snapshot() {
   return {
     items: state.watchlist.map(item => ({
-      ...item, quote: state.cached[item.key] ?? null, samples: history.get(item.key) ?? [],
+      ...item, source: state.sources[sourceGroup(item)] ? '自定义行情源' : item.source,
+      quote: state.cached[item.key] ?? null, samples: history.get(item.key) ?? [],
       cached: !current.has(item.key) && Boolean(state.cached[item.key]), error: errors.get(item.key),
     })),
     interval: state.interval, pinned: state.pinned, redUp: state.redUp, refreshing, updatedAt,
     errors: errors.size, current: current.size, saveFailed,
+    sources: state.sources, proxy: state.proxy, monitors: state.monitors,
   };
 }
 
@@ -82,15 +98,22 @@ function publish() {
 }
 
 async function refresh({ forceAgain = false } = {}) {
-  if (refreshing) { pending ||= forceAgain; return; }
+  if (refreshing || proxyChanging) { pending ||= forceAgain; return; }
   if (!state.watchlist.length || closing) return;
   refreshing = true;
+  const controller = new AbortController();
+  activeRefresh = controller;
   publish();
   try {
     const requested = state.watchlist.slice();
-    const result = await getQuotes(net.fetch, requested);
-    if (closing) return;
+    const revision = quoteRevision;
+    const fetch = (url, options) => quoteNetwork.fetch(url, {
+      ...options, signal: AbortSignal.any([options.signal, controller.signal]),
+    });
+    const result = await getQuotes(fetch, requested, state.sources);
+    if (closing || revision !== quoteRevision) return;
     let received = false;
+    const alerts = [];
     for (const item of state.watchlist) {
       if (!requested.includes(item)) continue;
       const response = result.get(item.key);
@@ -103,15 +126,139 @@ async function refresh({ forceAgain = false } = {}) {
       errors.delete(item.key);
       current.add(item.key);
       state.cached[item.key] = response.quote;
+      alerts.push(...evaluateMonitors(state.monitors, item, response.quote));
       const series = history.get(item.key) ?? [];
       history.set(item.key, [...series.slice(-31), response.quote.price]);
     }
     if (received) { updatedAt = Date.now(); save(); }
+    if (alerts.length) announceAlerts(alerts);
   } finally {
+    activeRefresh = null;
     refreshing = false;
     if (!closing) publish();
-    if (pending) { pending = false; void refresh(); }
+    if (pending && !proxyChanging) { pending = false; void refresh(); }
   }
+}
+
+function announceAlerts(alerts) {
+  const lines = alerts.slice(0, 3).map(alert => {
+    const direction = alert.direction === 'above' ? '≥' : '≤';
+    return alert.code + ' ' + direction + ' ' + alert.threshold + '，现价 ' + alert.price + ' ' + alert.currency;
+  });
+  if (alerts.length > lines.length) lines.push('另有 ' + (alerts.length - lines.length) + ' 条提醒');
+  if (process.platform !== 'win32') return;
+  try { tray.displayBalloon({ title: '浮窗看盘 · 价格提醒', content: lines.join('\n') }); }
+  catch { /* The monitor still keeps the latest trigger if Windows suppresses tray notifications. */ }
+}
+
+function clearQuote(key) {
+  delete state.cached[key];
+  current.delete(key);
+  errors.delete(key);
+  history.delete(key);
+}
+
+function changeSource(group, input) {
+  if (!sourceGroups.includes(group)) return { error: '请选择行情市场。' };
+  const { value, error } = parseSource(input);
+  if (error) return { error };
+  if (JSON.stringify(state.sources[group] ?? null) === JSON.stringify(value)) {
+    save();
+    publish();
+    return saveFailed ? { error: '写入本地设置失败。' } : {};
+  }
+  const sources = { ...state.sources };
+  if (value) sources[group] = value;
+  else delete sources[group];
+  state.sources = sources;
+  quoteRevision++;
+  activeRefresh?.abort();
+  for (const item of state.watchlist) {
+    if (sourceGroup(item) === group) clearQuote(item.key);
+  }
+  save();
+  publish();
+  void refresh({ forceAgain: true });
+  return saveFailed ? { error: '已应用，写入本地设置失败。' } : {};
+}
+
+async function testSource(group, input, code) {
+  if (!sourceGroups.includes(group)) return { error: '请选择行情市场。' };
+  if (proxyChanging) return { error: '代理正在切换，请稍后再试。' };
+  const { value, error } = parseSource(input);
+  if (error) return { error };
+  const samples = { cn: 'SH600519', us: 'AAPL', usd: 'BTC-USD', usdt: 'BTC-USDT' };
+  const market = group === 'cn' || group === 'us' ? group : 'crypto';
+  const item = symbol(market, typeof code === 'string' && code.trim() ? code : samples[group]);
+  if (!item || sourceGroup(item) !== group) return { error: '测试代码与选定市场不匹配。' };
+  const result = await getQuotes(quoteNetwork.fetch.bind(quoteNetwork), [item], value ? { [group]: value } : {});
+  const entry = result.get(item.key);
+  if (!entry?.quote) return { error: entry?.error ?? '未获取报价' };
+  return { code: item.code, currency: item.currency, price: entry.quote.price, change: entry.quote.change };
+}
+
+async function changeProxy(input) {
+  const { value, error } = parseProxy(input);
+  if (error) return { error };
+  if (proxyChanging) return { error: '代理正在切换，请稍后再试。' };
+  if (value.mode === state.proxy.mode && value.address === state.proxy.address) {
+    save();
+    publish();
+    return saveFailed ? { error: '写入本地设置失败。' } : {};
+  }
+  proxyChanging = true;
+  quoteRevision++;
+  activeRefresh?.abort();
+  try {
+    await setNetworkProxy(quoteNetwork, value);
+    state.proxy = value;
+    save();
+    publish();
+    return saveFailed ? { error: '代理已应用，写入本地设置失败。' } : {};
+  } catch {
+    await setNetworkProxy(quoteNetwork, state.proxy).catch(() => {});
+    return { error: '无法应用此代理设置。' };
+  } finally {
+    proxyChanging = false;
+    pending = false;
+    void refresh({ forceAgain: true });
+  }
+}
+
+function saveMonitor(input) {
+  const { value, error } = parseMonitor(input, state.watchlist);
+  if (error) return { error };
+  const existing = state.monitors.find(monitor => monitor.id === input.id);
+  if (input.id && !existing) return { error: '此规则已不存在。' };
+  if (state.monitors.some(monitor => monitor !== existing && monitor.key === value.key &&
+      monitor.direction === value.direction && monitor.threshold === value.threshold)) {
+    return { error: '已存在相同的提醒规则。' };
+  }
+  if (!existing && state.monitors.length >= 100) return { error: '最多可添加 100 条提醒规则。' };
+  if (existing) {
+    const changed = Object.keys(value).some(key => value[key] !== existing[key]);
+    if (changed) Object.assign(existing, value, { matched: false, triggeredAt: 0, triggeredPrice: null });
+  } else {
+    state.monitors.push({ ...value, id: randomUUID(), enabled: true, matched: false, triggeredAt: 0, triggeredPrice: null });
+  }
+  save();
+  publish();
+  void refresh({ forceAgain: true });
+  return saveFailed ? { error: '规则已应用，写入本地设置失败。' } : {};
+}
+
+function updateMonitor(id, action) {
+  const monitor = state.monitors.find(item => item.id === id);
+  if (!monitor) return { error: '此规则已不存在。' };
+  if (action === 'remove') state.monitors = state.monitors.filter(item => item !== monitor);
+  else if (action === 'enable' || action === 'disable') {
+    monitor.enabled = action === 'enable';
+    monitor.matched = false;
+  } else return { error: '规则操作无效。' };
+  save();
+  publish();
+  if (action === 'enable') void refresh({ forceAgain: true });
+  return saveFailed ? { error: '规则已应用，写入本地设置失败。' } : {};
 }
 
 function schedule() {
@@ -193,8 +340,14 @@ function trayMenu() {
     { label: '隐藏到托盘', click: hideAll },
     { type: 'separator' },
     { label: '刷新行情', click: () => void refresh() },
+    { label: '价格监控', click: showMonitors },
     { label: '退出浮窗看盘', click: () => app.quit() },
   ]));
+}
+
+function showMonitors() {
+  showPanel();
+  panel.webContents.send('open-settings', 'monitor');
 }
 
 function makeWindow(options, html) {
@@ -214,6 +367,11 @@ function registerIpc() {
   const fromPanel = (event, action) => event.sender === panel.webContents && action();
   const fromOrb = (event, action) => event.sender === orb.webContents && action();
   ipcMain.handle('snapshot', event => fromPanel(event, snapshot));
+  ipcMain.handle('source:save', (event, group, input) => fromPanel(event, () => changeSource(group, input)));
+  ipcMain.handle('source:test', (event, group, input, code) => fromPanel(event, () => testSource(group, input, code)));
+  ipcMain.handle('proxy:save', (event, input) => fromPanel(event, () => changeProxy(input)));
+  ipcMain.handle('monitor:save', (event, input) => fromPanel(event, () => saveMonitor(input)));
+  ipcMain.handle('monitor:update', (event, id, action) => fromPanel(event, () => updateMonitor(id, action)));
   ipcMain.handle('add', (event, market, code) => fromPanel(event, () => {
     const item = symbol(market, code);
     if (!item) return '请按示例输入有效代码';
@@ -228,12 +386,11 @@ function registerIpc() {
   ipcMain.on('quote-menu', (event, key) => fromPanel(event, () => {
     const item = state.watchlist.find(entry => entry.key === key);
     if (!item) return;
-    Menu.buildFromTemplate([{ label: '移出自选 · ' + item.code, click: () => {
+    const monitorCount = state.monitors.filter(monitor => monitor.key === key).length;
+    Menu.buildFromTemplate([{ label: '移出自选 · ' + item.code + (monitorCount ? '（含 ' + monitorCount + ' 条提醒）' : ''), click: () => {
       state.watchlist = state.watchlist.filter(entry => entry !== item);
-      delete state.cached[key];
-      current.delete(key);
-      errors.delete(key);
-      history.delete(key);
+      state.monitors = state.monitors.filter(monitor => monitor.key !== key);
+      clearQuote(key);
       save();
       publish();
     } }]).popup({ window: panel });
@@ -283,15 +440,21 @@ else {
   app.on('before-quit', () => {
     closing = true;
     clearInterval(timer);
+    activeRefresh?.abort();
     if (state) {
       if (panel?.isVisible()) remember(panel, 'panel');
       save();
     }
     tray?.destroy();
   });
-  app.whenReady().then(() => {
+  app.whenReady().then(async () => {
     statePath = path.join(app.getPath('userData'), 'marketfloat.json');
     state = load();
+    quoteNetwork = session.fromPartition('marketfloat-quotes', { cache: false });
+    await setNetworkProxy(quoteNetwork, state.proxy).catch(() => {
+      state.proxy = defaultProxy;
+      return setNetworkProxy(quoteNetwork, state.proxy);
+    });
     panel = makeWindow({ width: panelWidth, height: panelHeight, backgroundColor: '#101724', alwaysOnTop: state.pinned }, 'panel.html');
     orb = makeWindow({
       width: iconSize, height: iconSize, transparent: true, hasShadow: false,
@@ -304,6 +467,7 @@ else {
     tray.setToolTip('浮窗看盘');
     trayMenu();
     tray.on('click', showPanel);
+    if (process.platform === 'win32') tray.on('balloon-click', showMonitors);
     registerIpc();
     positionPanel(false);
     if (panel.webContents.isLoading()) panel.once('ready-to-show', showPanel);

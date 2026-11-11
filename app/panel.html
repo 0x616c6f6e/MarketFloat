@@ -6,6 +6,7 @@
   <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'">
   <title>浮窗看盘</title>
   <link rel="stylesheet" href="ui.css">
+  <script src="settings.js" defer></script>
   <script src="panel.js" defer></script>
 </head>
 <body class="panel-page">
@@ -13,18 +14,12 @@
     <img class="mark" src="MarketFloat.ico" alt="" draggable="false">
     <span class="app-name">浮窗看盘</span>
     <div class="window-actions">
-      <button class="window-action" id="settings-button" aria-label="设置" aria-expanded="false" title="设置">⋯</button>
+      <button class="window-action" id="settings-button" aria-label="设置" aria-expanded="false" aria-controls="settings-page" title="设置">⚙</button>
       <button class="window-action" id="collapse" aria-label="收起为悬浮图标" title="收起为悬浮图标（Esc）"><span class="shrink-icon"></span></button>
       <button class="window-action" id="hide" aria-label="隐藏到系统托盘" title="隐藏到系统托盘">−</button>
     </div>
   </header>
-  <aside id="settings" class="settings" aria-label="设置" hidden>
-    <label><span>面板置顶</span><input type="checkbox" id="pinned"></label>
-    <label><span>红涨绿跌</span><input type="checkbox" id="red-up"></label>
-    <label><span>刷新频率</span><select id="interval"><option value="15">15 秒</option><option value="30">30 秒</option><option value="60">60 秒</option></select></label>
-    <button class="plain" id="sources-button">行情来源</button>
-  </aside>
-  <main>
+  <main id="watch-page">
     <nav class="filters" aria-label="按市场筛选">
       <button type="button" data-market="all" aria-pressed="true">全部</button>
       <button type="button" data-market="cn" aria-pressed="false">A 股</button>
@@ -50,11 +45,113 @@
       </li>
     </template>
   </main>
-  <footer>
+  <footer id="watch-footer">
     <div class="connection"><span id="indicator" class="indicator"></span><span id="status" role="status">正在连接行情源…</span></div>
     <span id="frequency">30 秒刷新</span>
     <button id="refresh" type="button" title="刷新行情（F5）">↻ 刷新</button>
   </footer>
+  <main id="settings-page" aria-labelledby="settings-title" hidden>
+    <div class="settings-heading">
+      <button id="settings-back" class="secondary" type="button" aria-label="返回行情" title="返回行情（Esc）">‹</button>
+      <h1 id="settings-title">设置</h1>
+    </div>
+    <nav class="filters settings-tabs" aria-label="设置分类">
+      <button type="button" data-setting-tab="source" aria-pressed="true">行情来源</button>
+      <button type="button" data-setting-tab="monitor" aria-pressed="false">价格监控</button>
+      <button type="button" data-setting-tab="proxy" aria-pressed="false">网络代理</button>
+      <button type="button" data-setting-tab="general" aria-pressed="false">常规</button>
+    </nav>
+    <div class="settings-body">
+      <section id="settings-source" aria-label="行情来源">
+        <form id="source-form" class="settings-form" novalidate>
+          <label>行情市场
+            <select id="source-group">
+              <option value="cn">A 股</option><option value="us">美股</option>
+              <option value="usd">加密货币 · USD</option><option value="usdt">加密货币 · USDT</option>
+            </select>
+          </label>
+          <label>数据来源
+            <select id="source-mode"><option value="builtin">内置行情源</option><option value="custom">自定义 JSON 接口</option></select>
+          </label>
+          <p id="source-info" class="setting-copy"></p>
+          <div id="source-custom" class="settings-form" hidden>
+            <label>接口 URL
+              <input id="source-url" type="text" placeholder="https://example.com/quote?symbol={code}" maxlength="2000" spellcheck="false" autocomplete="off">
+            </label>
+            <p class="setting-copy">支持 GET 接口。用 <code>{code}</code> 插入标的代码，也可用 <code>{symbol}</code>、<code>{base}</code> 或 <code>{quote}</code>。</p>
+            <label>最新价字段
+              <input id="source-price" type="text" placeholder="data.price 或 data[0].price" maxlength="160" spellcheck="false">
+            </label>
+            <details class="field-details">
+              <summary>可选字段</summary>
+              <div class="settings-form compact">
+                <label>涨跌幅字段（百分数）<input id="source-change" type="text" placeholder="data.changePercent" maxlength="160" spellcheck="false"></label>
+                <label>基准价字段<input id="source-previous" type="text" placeholder="data.previousClose" maxlength="160" spellcheck="false"></label>
+                <label>标的名称字段<input id="source-name" type="text" placeholder="data.name" maxlength="160" spellcheck="false"></label>
+                <p class="setting-copy">未返回涨跌幅时，可用最新价和基准价计算。</p>
+              </div>
+            </details>
+          </div>
+          <label>测试代码（可选）<input id="source-test-code" type="text" maxlength="24" autocomplete="off" spellcheck="false"></label>
+          <div class="setting-actions">
+            <button id="source-test" class="secondary" type="button">测试取价</button>
+            <button class="primary" type="submit">保存来源</button>
+          </div>
+          <p id="source-status" class="setting-message" role="status"></p>
+        </form>
+      </section>
+      <section id="settings-monitor" aria-label="价格监控" hidden>
+        <p class="setting-copy monitor-copy">到达目标价时发送系统通知。价格离开条件后，再次达到会重新提醒。收起面板后继续监控。</p>
+        <form id="monitor-form" class="settings-form" novalidate>
+          <label>自选标的<select id="monitor-symbol"></select></label>
+          <div class="form-pair">
+            <label>条件<select id="monitor-direction"><option value="above">大于或等于</option><option value="below">小于或等于</option></select></label>
+            <label>目标价 <span id="monitor-currency"></span><input id="monitor-threshold" type="number" inputmode="decimal" step="any" placeholder="例如 150"></label>
+          </div>
+          <div class="setting-actions">
+            <button id="monitor-cancel" class="secondary" type="button" hidden>取消编辑</button>
+            <button id="monitor-submit" class="primary" type="submit">添加提醒</button>
+          </div>
+          <p id="monitor-status" class="setting-message" role="status"></p>
+        </form>
+        <div class="monitor-heading"><h2>提醒规则</h2><span id="monitor-count"></span></div>
+        <ul id="monitor-list" class="monitor-list"></ul>
+        <template id="monitor-row">
+          <li class="monitor-row">
+            <div class="rule-heading"><strong class="rule-name"></strong><span class="rule-status"></span></div>
+            <span class="rule-trigger"></span>
+            <div class="rule-actions">
+              <button type="button" data-rule-action="edit">编辑</button>
+              <button type="button" data-rule-action="toggle"></button>
+              <button type="button" data-rule-action="remove">删除</button>
+            </div>
+          </li>
+        </template>
+      </section>
+      <section id="settings-proxy" aria-label="网络代理" hidden>
+        <form id="proxy-form" class="settings-form" novalidate>
+          <label>代理模式
+            <select id="proxy-mode">
+              <option value="system">使用系统代理</option><option value="direct">直接连接</option><option value="fixed_servers">手动代理</option>
+            </select>
+          </label>
+          <label id="proxy-manual" hidden>代理地址
+            <input id="proxy-address" type="text" placeholder="http://127.0.0.1:7890" maxlength="260" autocomplete="off" spellcheck="false">
+          </label>
+          <p class="setting-copy">手动代理支持 HTTP、HTTPS 和 SOCKS5。保存后立即用于内置及自定义行情请求。</p>
+          <div class="setting-actions"><button class="primary" type="submit">保存代理</button></div>
+          <p id="proxy-status" class="setting-message" role="status"></p>
+        </form>
+      </section>
+      <section id="settings-general" aria-label="常规" hidden>
+        <div class="general-options">
+          <label><span>面板置顶</span><input type="checkbox" id="pinned"></label>
+          <label><span>红涨绿跌</span><input type="checkbox" id="red-up"></label>
+          <label><span>刷新频率</span><select id="interval"><option value="15">15 秒</option><option value="30">30 秒</option><option value="60">60 秒</option></select></label>
+        </div>
+      </section>
+    </div>
+  </main>
   <dialog id="add-dialog">
     <form id="add-form">
       <h2>添加自选</h2>
@@ -66,15 +163,6 @@
       <input id="new-code" type="text" maxlength="24" autocomplete="off" spellcheck="false" required>
       <p id="add-hint" class="hint" aria-live="polite"></p>
       <div class="dialog-actions"><button id="add-cancel" type="button">取消</button><button class="primary" type="submit">添加</button></div>
-    </form>
-  </dialog>
-  <dialog id="sources">
-    <form method="dialog">
-      <h2>行情来源</h2>
-      <p>A 股和美股使用腾讯财经，涨跌幅相对昨收，报价可能延迟。</p>
-      <p>加密货币的 USD 交易对来自 Coinbase，USDT 来自 Binance。涨跌幅按 24 小时统计。</p>
-      <p>将鼠标悬停在标的上可查看取数时间及错误信息。走势取自本次运行期间的报价。</p>
-      <div class="dialog-actions"><button class="primary">关闭</button></div>
     </form>
   </dialog>
 </body>

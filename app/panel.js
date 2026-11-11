@@ -122,17 +122,16 @@ function render() {
   $('#indicator').className = 'indicator ' + indicator;
 }
 
-function setState(value) { state = value; render(); }
+function setState(value) {
+  state = value;
+  window.marketFloatSettings.update(value);
+  render();
+}
 
 function chooseMarket(value) {
   filter = value;
   list.scrollTop = 0;
   render();
-}
-
-function toggleSettings(open) {
-  $('#settings').hidden = !open;
-  $('#settings-button').setAttribute('aria-expanded', String(open));
 }
 
 function hint() {
@@ -142,7 +141,7 @@ function hint() {
 
 function showAdd() {
   if (dialog.open) return;
-  toggleSettings(false);
+  window.marketFloatSettings.close();
   $('#new-market').value = filter === 'all' ? 'cn' : filter;
   $('#new-code').value = '';
   hint();
@@ -152,16 +151,6 @@ function showAdd() {
 
 filters.forEach(button => button.addEventListener('click', () => chooseMarket(button.dataset.market)));
 $('#add').addEventListener('click', showAdd);
-$('#settings-button').addEventListener('click', () => toggleSettings($('#settings').hidden));
-$('#settings').addEventListener('change', event => {
-  if (event.target.id === 'pinned') api.setting('pinned', event.target.checked);
-  if (event.target.id === 'red-up') api.setting('redUp', event.target.checked);
-  if (event.target.id === 'interval') api.setting('interval', Number(event.target.value));
-});
-$('#sources-button').addEventListener('click', () => { toggleSettings(false); $('#sources').showModal(); });
-document.addEventListener('click', event => {
-  if (!event.target.closest('#settings, #settings-button')) toggleSettings(false);
-});
 $('#new-market').addEventListener('change', hint);
 $('#new-code').addEventListener('input', hint);
 $('#add-cancel').addEventListener('click', () => dialog.close());
@@ -183,14 +172,14 @@ $('#add-form').addEventListener('submit', async event => {
     dialog.close();
   } finally { submit.disabled = false; }
 });
-$('#collapse').addEventListener('click', () => { toggleSettings(false); api.collapse(); });
-$('#hide').addEventListener('click', () => { toggleSettings(false); api.hide(); });
+$('#collapse').addEventListener('click', api.collapse);
+$('#hide').addEventListener('click', api.hide);
 $('#refresh').addEventListener('click', api.refresh);
 document.addEventListener('keydown', event => {
   if (event.key === 'F5') { event.preventDefault(); api.refresh(); }
   if (document.querySelector('dialog[open]')) return;
   if (event.key === 'Escape') {
-    if (!$('#settings').hidden) toggleSettings(false);
+    if (!$('#settings-page').hidden) window.marketFloatSettings.close(true);
     else api.collapse();
   }
   if (event.ctrlKey && event.key.toLowerCase() === 'n') { event.preventDefault(); showAdd(); }

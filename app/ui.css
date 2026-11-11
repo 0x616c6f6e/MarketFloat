@@ -156,25 +156,47 @@ footer {
   white-space: nowrap;
 }
 #refresh:hover, .dialog-actions button:hover { filter: brightness(1.18); }
-.settings {
-  position: fixed;
-  z-index: 2;
-  top: 54px;
-  right: 15px;
-  display: grid;
-  gap: 5px;
-  width: 171px;
-  padding: 8px 10px;
-  border: 1px solid #405471;
-  border-radius: 9px;
-  background: #1a2739;
-  box-shadow: 0 9px 26px #070b14b0;
-}
-.settings label { display: flex; align-items: center; justify-content: space-between; min-height: 33px; }
 input[type="checkbox"] { accent-color: var(--accent); width: 15px; height: 15px; }
-select, input[type="text"] { padding: 7px 8px; color: var(--text); border: 1px solid #455976; border-radius: 6px; background: #152031; }
-.plain { padding: 7px 0 4px; text-align: left; border: 0; border-top: 1px solid var(--line); background: transparent; }
-.plain:hover { color: var(--accent); }
+select, input[type="text"], input[type="number"] { padding: 7px 8px; color: var(--text); border: 1px solid #455976; border-radius: 6px; background: #152031; }
+.settings-heading { display: flex; align-items: center; gap: 11px; padding-top: 16px; }
+.secondary { border: 1px solid var(--line); border-radius: 7px; background: var(--raised); color: var(--text); }
+.secondary:hover { background: #2c3f58; }
+#settings-back { width: 31px; height: 31px; padding: 0 0 3px; font: 24px/1 "Segoe UI", sans-serif; }
+.settings-tabs { margin: 13px 0; flex: 0 0 auto; }
+.settings-body { flex: 1; overflow: auto; min-height: 0; scrollbar-width: thin; scrollbar-color: #405371 transparent; padding-bottom: 14px; }
+.settings-body > section { padding: 13px 14px; border: 1px solid var(--line); border-radius: 9px; background: var(--surface); }
+.settings-form { display: grid; gap: 11px; }
+.settings-form.compact { gap: 9px; margin-top: 10px; }
+.settings-form label { display: block; font-size: 12px; color: var(--text); }
+.settings-form label > input, .settings-form label > select { display: block; width: 100%; min-width: 0; margin-top: 5px; }
+.settings-form input::placeholder { color: #8193af; }
+.setting-copy { margin: 0; color: var(--muted); font-size: 11.5px; line-height: 1.6; }
+.setting-copy code { color: var(--accent); font-family: "Cascadia Mono", monospace; }
+.field-details { padding: 8px 10px; background: #121c2b; border: 1px solid var(--line); border-radius: 7px; }
+.field-details summary { color: var(--muted); cursor: pointer; font-size: 12px; }
+.setting-actions { display: flex; justify-content: flex-end; gap: 8px; }
+.setting-actions button { min-height: 32px; padding: 0 12px; }
+.setting-message { margin: 0; min-height: 17px; color: var(--accent); font-size: 11.5px; line-height: 1.5; overflow-wrap: anywhere; }
+.setting-message.error { color: var(--warn); }
+.form-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+#monitor-currency { color: var(--muted); font-size: 10px; }
+.monitor-copy { margin: 0 0 13px; }
+.monitor-heading { display: flex; align-items: baseline; justify-content: space-between; border-top: 1px solid var(--line); margin-top: 9px; padding-top: 12px; }
+.monitor-heading h2 { font-size: 14px; margin: 0; }
+#monitor-count { color: var(--muted); font-size: 11px; }
+.monitor-list { display: grid; gap: 6px; list-style: none; padding: 0; margin: 9px 0 0; }
+.monitor-row { display: grid; gap: 5px; padding: 9px 10px; border: 1px solid var(--line); border-radius: 7px; background: #121c2b; }
+.rule-heading { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.rule-name { overflow-wrap: anywhere; }
+.rule-status { flex: none; padding: 2px 6px; border-radius: 4px; background: var(--raised); color: var(--muted); font-size: 10px; }
+.rule-status.triggered { color: var(--accent); background: #214039; }
+.rule-trigger, .rule-empty { color: var(--muted); font-size: 11px; }
+.rule-empty { padding: 8px 0; }
+.rule-actions { display: flex; justify-content: flex-end; gap: 5px; }
+.rule-actions button { padding: 3px 7px; border: 0; border-radius: 4px; background: var(--raised); color: var(--muted); font-size: 11px; }
+.rule-actions button:hover { color: var(--text); background: #314460; }
+.general-options label { display: flex; justify-content: space-between; align-items: center; min-height: 47px; }
+.general-options label + label { border-top: 1px solid var(--line); }
 dialog { width: min(348px, 92%); border: 1px solid #405471; border-radius: 12px; padding: 18px; color: var(--text); background: var(--surface); }
 dialog::backdrop { background: #060b14bd; }
 dialog h2 { margin: 0 0 12px; font-size: 18px; }
