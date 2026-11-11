@@ -13,7 +13,7 @@ const iconPath = path.join(__dirname, 'MarketFloat.ico');
 const iconSize = 62;
 const panelWidth = 464;
 const panelHeight = 670;
-const intervals = [5, 10, 15, 30, 60];
+const intervals = [3, 5, 10, 15, 30, 60];
 let panel, orb, tray, state, drag, timer, statePath, quoteNetwork, chartNetwork, activeRefresh;
 let view = 'panel';
 let closing = false;
@@ -199,6 +199,16 @@ function isTradingViewUrl(value) {
   } catch { return false; }
 }
 
+function syncFloatingOrder() {
+  if (closing) return;
+  const focused = BrowserWindow.getFocusedWindow();
+  const chartFocused = [...chartWindows.values()].some(entry => entry.chart === focused);
+  const panelPinned = state.pinned && !chartFocused;
+  const orbPinned = !chartFocused;
+  if (!panel.isDestroyed() && panel.isAlwaysOnTop() !== panelPinned) panel.setAlwaysOnTop(panelPinned);
+  if (!orb.isDestroyed() && orb.isAlwaysOnTop() !== orbPinned) orb.setAlwaysOnTop(orbPinned);
+}
+
 async function showTradingView(item, period = state.chartPeriod) {
   if (closing) return;
   let entry = chartWindows.get(item.key);
@@ -209,11 +219,28 @@ async function showTradingView(item, period = state.chartPeriod) {
     const chart = new BrowserWindow({
       x: Math.round(area.x + (area.width - width) / 2), y: Math.round(area.y + (area.height - height) / 2),
       width, height, title: item.code + ' · TradingView', icon: iconPath, backgroundColor: '#131722',
-      autoHideMenuBar: true,
+      autoHideMenuBar: true, show: false,
       webPreferences: { session: chartNetwork, sandbox: true, contextIsolation: true, nodeIntegration: false },
     });
     chart.setMenu(null);
-    chart.once('closed', () => chartWindows.delete(item.key));
+    chart.on('focus', syncFloatingOrder);
+    chart.on('blur', () => setImmediate(syncFloatingOrder));
+    chart.once('closed', () => {
+      chartWindows.delete(item.key);
+      syncFloatingOrder();
+    });
+    let closingChart = false;
+    chart.on('close', () => { closingChart = true; });
+    chart.webContents.on('will-prevent-unload', event => {
+      // In Electron, preventing this event lets the requested close proceed.
+      if (closingChart) event.preventDefault();
+    });
+    chart.webContents.on('before-input-event', (event, input) => {
+      if (input.type !== 'keyDown' || !input.control || input.alt || input.shift || input.meta ||
+          input.isComposing || input.isAutoRepeat || input.key.toLowerCase() !== 'w') return;
+      event.preventDefault();
+      chart.close();
+    });
     chart.on('page-title-updated', event => event.preventDefault());
     chart.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
     entry = { chart, period: null, request: null, listing: '' };
@@ -223,6 +250,7 @@ async function showTradingView(item, period = state.chartPeriod) {
   if (chart.isMinimized()) chart.restore();
   chart.show();
   chart.focus();
+  syncFloatingOrder();
   if (entry.period === period) return;
   entry.period = period;
   const request = Symbol();
@@ -506,7 +534,7 @@ function registerIpc() {
   }));
   ipcMain.on('setting', (event, key, value) => fromPanel(event, () => {
     if (key === 'interval' && intervals.includes(value)) { state.interval = value; schedule(); }
-    else if (key === 'pinned' && typeof value === 'boolean') { state.pinned = value; panel.setAlwaysOnTop(value); }
+    else if (key === 'pinned' && typeof value === 'boolean') { state.pinned = value; syncFloatingOrder(); }
     else if (key === 'redUp' && typeof value === 'boolean') state.redUp = value;
     else if (key === 'chartPeriod' && isChartPeriod(value)) {
       if (state.chartPeriod === value) return;

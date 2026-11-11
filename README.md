@@ -9,7 +9,7 @@ Windows 10 / 11 x64。解压 Windows 压缩包到一个目录，双击里面的 
 - **隐藏到托盘**：点击标题栏的「−」，或右键悬浮图标选择「隐藏到托盘」。右键托盘图标可以显示面板、显示悬浮图标、刷新行情和退出。
 - **添加自选**：点击「添加」或按 Ctrl+N，选择市场并输入代码，例如 `600519`、`AAPL`、`BTC-USDT` 或 `ETH-USD`。右键标的或点击标的右侧「⋯」可移除。
 - **K 线预览**：将鼠标停在标的上约 0.7 秒，查看最近最多 30 根 K 线、成交量柱和最新一根的开、高、低、收。把鼠标移入预览后可切换日 K、周 K 或月 K。所选周期会保存。
-- **TradingView 图表**：双击标的打开独立窗口并沿用预览所选周期，也可从右键菜单打开，或选中行后按 Enter。同一标的切换周期时复用已有窗口。支持的交易所和标的由 [TradingView 的行情覆盖](https://www.tradingview.com/data-coverage/)决定。
+- **TradingView 图表**：双击标的打开独立窗口并沿用预览所选周期，也可从右键菜单打开，或选中行后按 Enter。同一标的切换周期时复用已有窗口。点击图表右上角的「×」或按 Ctrl+W 关闭图表。支持的交易所和标的由 [TradingView 的行情覆盖](https://www.tradingview.com/data-coverage/)决定。
 - **设置**：点击标题栏齿轮，进入行情来源、价格监控、网络代理或常规设置。常规设置包含面板置顶、涨跌配色和 5 / 10 / 15 / 30 / 60 秒刷新。F5 立即刷新。
 
 A 股和美股来自腾讯财经，涨跌幅相对昨收，行情可能延迟。加密货币的 USD 和 USDT 交易对分别使用 [Coinbase](https://docs.cdp.coinbase.com/api-reference/exchange-api/rest-api/products/get-product-stats) 和 [Binance](https://developers.binance.com/en/docs/catalog/core-trading-spot-trading/api/rest-api/market)，涨跌幅按 24 小时统计。走势来自本次运行期间的实际取价。网络失败时，已有报价会标为「缓存」。
@@ -49,16 +49,16 @@ npm start
 
 [Windows 打包工作流](.github/workflows/windows.yml)在分支推送、Pull Request、手动触发或版本标签推送时打包。运行成功后，可在 **Actions → 对应运行 → Artifacts** 下载 `MarketFloat-windows-x64`。
 
-推送与 `package.json` 一致的版本标签（如 `v2.3.1`）后，工作流会把 Windows ZIP 和 SHA-256 文件上传到该版本的 **Releases**。工作流使用 GitHub 自动提供的 `GITHUB_TOKEN`。
+推送与 `package.json` 一致的版本标签（如 `v2.3.2`）后，工作流会把 Windows ZIP 和 SHA-256 文件上传到该版本的 **Releases**。工作流使用 GitHub 自动提供的 `GITHUB_TOKEN`。
 
 首次上传时，在 GitHub 创建空仓库，把下面的 `OWNER` 和 `REPO` 替换为实际值，然后在本地仓库目录中运行：
 
 ```powershell
 git remote add origin https://github.com/OWNER/REPO.git
 git push -u origin main
-git push origin v2.3.1
+git push origin v2.3.2
 ```
 
 如果通过 `git clone MarketFloat.bundle` 恢复仓库，使用 `git remote set-url origin https://github.com/OWNER/REPO.git` 替代上面的 `git remote add`。
 
-当前版本的发布标签为 `v2.3.1`。如果只需要 CI 构建，推送分支即可。后续发版时，用 `npm version patch` 更新版本并创建新标签，随后推送分支和该标签。
+当前版本的发布标签为 `v2.3.2`。如果只需要 CI 构建，推送分支即可。后续发版时，用 `npm version patch` 更新版本并创建新标签，随后推送分支和该标签。
