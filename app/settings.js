@@ -47,13 +47,20 @@
     $('settings-page').querySelector('.settings-body').scrollTop = 0;
   }
 
-  function open(tab = selectedTab) {
+  function open(tab = selectedTab, key) {
     window.chartPreview.hide();
     $('watch-page').hidden = true;
     $('watch-footer').hidden = true;
     $('settings-page').hidden = false;
     $('settings-button').setAttribute('aria-expanded', 'true');
     selectTab(tab);
+    if (tab === 'monitor' && state?.items.some(item => item.key === key)) {
+      resetMonitorForm();
+      $('monitor-symbol').value = key;
+      monitorCurrency();
+      status('monitor-status', '');
+      $('monitor-threshold').focus();
+    }
   }
 
   function close(focus = false) {
@@ -227,6 +234,6 @@
     if (event.target.id === 'red-up') api.setting('redUp', event.target.checked);
     if (event.target.id === 'interval') api.setting('interval', Number(event.target.value));
   });
-  api.onOpenSettings(tab => open(tab));
+  api.onOpenSettings(open);
   window.marketFloatSettings = { update, close };
 })();

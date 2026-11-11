@@ -521,6 +521,7 @@ function registerIpc() {
     const monitorCount = state.monitors.filter(monitor => monitor.key === key).length;
     Menu.buildFromTemplate([
       { label: '打开 TradingView 图表', click: () => void showTradingView(item) },
+      { label: '设置价格监控', click: () => panel.webContents.send('open-settings', 'monitor', item.key) },
       { type: 'separator' },
       { label: '移出自选 · ' + item.code + (monitorCount ? '（含 ' + monitorCount + ' 条提醒）' : ''), click: () => {
         state.watchlist = state.watchlist.filter(entry => entry !== item);

@@ -17,7 +17,7 @@ A 股和美股来自腾讯财经，涨跌幅相对昨收，行情可能延迟。
 ## 设置
 
 - **行情来源**可分别设置 A 股、美股、加密货币 USD 和 USDT 的内置或自定义来源。自定义来源使用 HTTP(S) GET JSON 接口。URL 示例为 `https://example.com/quote?symbol={code}`。`{code}` 是完整代码，如 `SH600519`、`AAPL` 或 `BTC-USDT`。`{symbol}` 是常见接口格式，如 `sh600519` 或 `BTCUSDT`。加密货币还可使用 `{base}` 和 `{quote}`。例如返回 `{"data":[{"last":123.45,"changePct":2.5}]}` 时，最新价填 `data[0].last`，涨跌幅填 `data[0].changePct`（`2.5` 表示 2.5%）。保存前可用「测试取价」验证字段。
-- **价格监控**可添加大于等于或小于等于目标价的规则。程序只用新获取的报价判断。连续满足条件只提醒一次，价格离开条件后再次进入会重新提醒。面板隐藏到托盘后仍会监控。提醒规则保留最近触发时间及价格，Windows 系统通知的显示受系统设置影响。
+- **价格监控**可添加大于等于或小于等于目标价的规则。右键自选标的并选择「设置价格监控」，可直接打开该标的的规则表单。程序只用新获取的报价判断。连续满足条件只提醒一次，价格离开条件后再次进入会重新提醒。面板隐藏到托盘后仍会监控。提醒规则保留最近触发时间及价格，Windows 系统通知的显示受系统设置影响。
 - **网络代理**支持系统代理、直连和手动代理。手动地址示例为 `http://127.0.0.1:7890` 或 `socks5://127.0.0.1:1080`，也支持 HTTPS 代理。手动代理地址需包含端口，适用于所有行情请求。
 
 K 线预览从公共历史行情源取数，独立于自定义报价接口。股票来源为腾讯财经，北交所优先使用东方财富。加密货币按交易对使用 [Coinbase](https://docs.cdp.coinbase.com/api-reference/exchange-api/rest-api/products/get-product-candles) 或 [Binance](https://developers.binance.com/en/docs/catalog/core-trading-spot-trading/api/rest-api/market)。Coinbase 的周 K 按 UTC 周一开始聚合日 K，月 K 按 UTC 日历月聚合。成交量单位随市场显示。预览和 TradingView 窗口均使用应用内的网络代理设置。
@@ -49,16 +49,16 @@ npm start
 
 [Windows 打包工作流](.github/workflows/windows.yml)在分支推送、Pull Request、手动触发或版本标签推送时打包。运行成功后，可在 **Actions → 对应运行 → Artifacts** 下载 `MarketFloat-windows-x64`。
 
-推送与 `package.json` 一致的版本标签（如 `v2.3.3`）后，工作流会把 Windows ZIP 和 SHA-256 文件上传到该版本的 **Releases**。工作流使用 GitHub 自动提供的 `GITHUB_TOKEN`。
+推送与 `package.json` 一致的版本标签（如 `v2.3.4`）后，工作流会把 Windows ZIP 和 SHA-256 文件上传到该版本的 **Releases**。工作流使用 GitHub 自动提供的 `GITHUB_TOKEN`。
 
 首次上传时，在 GitHub 创建空仓库，把下面的 `OWNER` 和 `REPO` 替换为实际值，然后在本地仓库目录中运行：
 
 ```powershell
 git remote add origin https://github.com/OWNER/REPO.git
 git push -u origin main
-git push origin v2.3.3
+git push origin v2.3.4
 ```
 
 如果通过 `git clone MarketFloat.bundle` 恢复仓库，使用 `git remote set-url origin https://github.com/OWNER/REPO.git` 替代上面的 `git remote add`。
 
-当前版本的发布标签为 `v2.3.3`。如果只需要 CI 构建，推送分支即可。后续发版时，用 `npm version patch` 更新版本并创建新标签，随后推送分支和该标签。
+当前版本的发布标签为 `v2.3.4`。如果只需要 CI 构建，推送分支即可。后续发版时，用 `npm version patch` 更新版本并创建新标签，随后推送分支和该标签。
