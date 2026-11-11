@@ -6,7 +6,7 @@ const { symbol, defaults, getQuotes } = require('./quotes.cjs');
 const { getHistory, usListing, tradingViewUrl, isChartPeriod } = require('./charts.cjs');
 const {
   sourceGroups, sourceGroup, parseSource, defaultProxy, parseProxy, setNetworkProxy,
-  parseMonitor, loadMonitors, evaluateMonitors,
+  parseMonitor, loadMonitors, evaluateMonitors, parsePosition, positionMetrics,
 } = require('./preferences.cjs');
 
 const iconPath = path.join(__dirname, 'MarketFloat.ico');
@@ -57,9 +57,12 @@ function load() {
   }
   const watchlist = [...unique.values()];
   const cached = {};
+  const positions = {};
   for (const item of watchlist) {
     const quote = saved?.cached?.[item.key];
     if (Number.isFinite(quote?.price) && quote.price > 0) cached[item.key] = quote;
+    const { value } = parsePosition(saved?.positions?.[item.key]);
+    if (value) positions[item.key] = value;
   }
   const sources = {};
   for (const group of sourceGroups) {
@@ -67,7 +70,7 @@ function load() {
     if (value) sources[group] = value;
   }
   return {
-    watchlist, cached, interval: intervals.includes(saved?.interval) ? saved.interval : 30,
+    watchlist, cached, positions, interval: intervals.includes(saved?.interval) ? saved.interval : 30,
     pinned: saved?.pinned !== false, redUp: saved?.redUp !== false,
     panel: saved?.panel, orb: saved?.orb, sources,
     proxy: parseProxy(saved?.proxy).value ?? defaultProxy,
@@ -89,6 +92,8 @@ function snapshot() {
     items: state.watchlist.map(item => ({
       ...item, source: state.sources[sourceGroup(item)] ? '自定义行情源' : item.source,
       quote: state.cached[item.key] ?? null, samples: history.get(item.key) ?? [],
+      position: state.positions[item.key] ?? null,
+      positionMetrics: positionMetrics(state.positions[item.key], state.cached[item.key]?.price),
       cached: !current.has(item.key) && Boolean(state.cached[item.key]), error: errors.get(item.key),
     })),
     interval: state.interval, pinned: state.pinned, redUp: state.redUp, refreshing, updatedAt,
@@ -99,6 +104,20 @@ function snapshot() {
 
 function publish() {
   if (panel && !panel.isDestroyed()) panel.webContents.send('state', snapshot());
+}
+
+function savePosition(key, input) {
+  if (!state.watchlist.some(item => item.key === key)) return { error: '此标的已移出自选。' };
+  const { value, error } = input === null ? {} : parsePosition(input);
+  if (error) return { error };
+  const previous = state.positions;
+  state.positions = { ...previous };
+  if (value) state.positions[key] = value;
+  else delete state.positions[key];
+  save();
+  if (saveFailed) state.positions = previous;
+  publish();
+  return saveFailed ? { error: '无法保存仓位，请重试。' } : {};
 }
 
 async function refresh({ forceAgain = false } = {}) {
@@ -504,6 +523,7 @@ function registerIpc() {
   ipcMain.handle('proxy:save', (event, input) => fromPanel(event, () => changeProxy(input)));
   ipcMain.handle('monitor:save', (event, input) => fromPanel(event, () => saveMonitor(input)));
   ipcMain.handle('monitor:update', (event, id, action) => fromPanel(event, () => updateMonitor(id, action)));
+  ipcMain.handle('position:save', (event, key, input) => fromPanel(event, () => savePosition(key, input)));
   ipcMain.handle('add', (event, market, code) => fromPanel(event, () => {
     const item = symbol(market, code);
     if (!item) return '请按示例输入有效代码';
@@ -519,13 +539,17 @@ function registerIpc() {
     const item = state.watchlist.find(entry => entry.key === key);
     if (!item) return;
     const monitorCount = state.monitors.filter(monitor => monitor.key === key).length;
+    const position = state.positions[key];
+    const linked = [monitorCount ? monitorCount + ' 条提醒' : '', position ? '仓位' : ''].filter(Boolean);
     Menu.buildFromTemplate([
       { label: '打开 TradingView 图表', click: () => void showTradingView(item) },
       { label: '设置价格监控', click: () => panel.webContents.send('open-settings', 'monitor', item.key) },
+      { label: position ? '编辑合约仓位' : '录入合约仓位', click: () => panel.webContents.send('open-position', item.key) },
       { type: 'separator' },
-      { label: '移出自选 · ' + item.code + (monitorCount ? '（含 ' + monitorCount + ' 条提醒）' : ''), click: () => {
+      { label: '移出自选 · ' + item.code + (linked.length ? '（含 ' + linked.join('和') + '）' : ''), click: () => {
         state.watchlist = state.watchlist.filter(entry => entry !== item);
         state.monitors = state.monitors.filter(monitor => monitor.key !== key);
+        delete state.positions[key];
         clearQuote(key);
         chartHistory.delete(key);
         save();

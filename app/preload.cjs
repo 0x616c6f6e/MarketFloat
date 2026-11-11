@@ -13,6 +13,8 @@ contextBridge.exposeInMainWorld('marketFloat', {
   saveProxy: input => ipcRenderer.invoke('proxy:save', input),
   saveMonitor: input => ipcRenderer.invoke('monitor:save', input),
   updateMonitor: (id, action) => ipcRenderer.invoke('monitor:update', id, action),
+  savePosition: (key, input) => ipcRenderer.invoke('position:save', key, input),
+  onOpenPosition: callback => ipcRenderer.on('open-position', (_event, key) => callback(key)),
   onOpenSettings: callback => ipcRenderer.on('open-settings', (_event, tab, key) => callback(tab, key)),
   refresh: () => ipcRenderer.send('refresh'),
   collapse: () => ipcRenderer.send('collapse'),

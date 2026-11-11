@@ -82,7 +82,7 @@ h1 { margin: 0; font-size: 23px; font-weight: 750; letter-spacing: -.045em; }
 #add { margin-left: auto; height: 33px; padding: 0 11px; }
 .column-headings, .quote-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 50px 104px 69px 20px;
+  grid-template-columns: minmax(0, 1fr) 50px 104px 82px 20px;
   align-items: center;
   gap: 8px;
   padding: 0 9px 0 12px;
@@ -104,6 +104,7 @@ h1 { margin: 0; font-size: 23px; font-weight: 750; letter-spacing: -.045em; }
 .pricing { text-align: right; font-variant-numeric: tabular-nums; }
 .price { font-size: 18px; line-height: 22px; font-weight: 740; }
 .price.long { font-size: 14px; }
+.quote-moves { display: grid; gap: 2px; min-width: 0; }
 .change {
   overflow: hidden;
   text-overflow: ellipsis;
@@ -119,6 +120,22 @@ h1 { margin: 0; font-size: 23px; font-weight: 750; letter-spacing: -.045em; }
 }
 .change.rise { color: var(--rise); background: #392b3a; }
 .change.fall { color: var(--fall); background: #243d3e; }
+.position-return {
+  min-width: 0;
+  overflow: hidden;
+  padding: 2px 0;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.position-return:hover { background: var(--raised); }
+.position-return.rise { color: var(--rise); }
+.position-return.fall { color: var(--fall); }
 .row-menu {
   width: 20px;
   height: 26px;
@@ -237,6 +254,8 @@ dialog p { margin: 0; line-height: 1.6; }
 .dialog-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 5px; }
 .dialog-actions button { min-width: 66px; }
 .dialog-actions .primary { background: var(--accent); color: #112623; border-color: transparent; }
+#position-symbol { color: var(--text); font-weight: 650; }
+#position-remove { margin-right: auto; color: var(--warn); }
 .orb-page { display: grid; place-items: center; background: transparent; overflow: hidden; user-select: none; }
 #orb {
   width: 54px;

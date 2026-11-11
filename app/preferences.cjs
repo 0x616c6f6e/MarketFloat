@@ -75,12 +75,34 @@ async function setNetworkProxy(network, proxy) {
   await network.closeAllConnections();
 }
 
+function decimalInput(amount) {
+  return typeof amount === 'number' || typeof amount === 'string' && /^\d*\.?\d+(?:e[+-]?\d+)?$/i.test(amount.trim())
+    ? Number(amount) : NaN;
+}
+
+function parsePosition(input) {
+  if (!['long', 'short'].includes(input?.side)) return { error: '请选择多空方向。' };
+  const entryPrice = decimalInput(input.entryPrice);
+  const quantity = decimalInput(input.quantity);
+  const leverage = decimalInput(input.leverage);
+  if (!Number.isFinite(entryPrice) || entryPrice <= 0) return { error: '开仓价必须大于零。' };
+  if (!Number.isFinite(quantity) || quantity <= 0) return { error: '数量必须大于零。' };
+  if (!Number.isFinite(leverage) || leverage < 1) return { error: '杠杆至少为 1 倍。' };
+  return { value: { side: input.side, entryPrice, quantity, leverage } };
+}
+
+function positionMetrics(position, price) {
+  if (!position || !Number.isFinite(price) || price <= 0) return null;
+  const move = (price - position.entryPrice) * (position.side === 'long' ? 1 : -1);
+  const roi = move / position.entryPrice * position.leverage * 100;
+  const pnl = move * position.quantity;
+  return { roi: Number.isFinite(roi) ? roi : null, pnl: Number.isFinite(pnl) ? pnl : null };
+}
+
 function parseMonitor(input, items) {
   if (!items.some(item => item.key === input?.key)) return { error: '请选择一个自选标的。' };
   if (!['above', 'below'].includes(input.direction)) return { error: '请选择价格条件。' };
-  const amount = input.threshold;
-  const threshold = typeof amount === 'number' || typeof amount === 'string' && /^\d*\.?\d+(?:e[+-]?\d+)?$/i.test(amount.trim())
-    ? Number(amount) : NaN;
+  const threshold = decimalInput(input.threshold);
   if (!Number.isFinite(threshold) || threshold <= 0) return { error: '目标价格必须大于零。' };
   return { value: { key: input.key, direction: input.direction, threshold } };
 }
@@ -116,4 +138,4 @@ function evaluateMonitors(monitors, item, quote) {
   return hits;
 }
 
-module.exports = { sourceGroups, sourceGroup, sourceUrl, parseSource, jsonField, defaultProxy, parseProxy, setNetworkProxy, parseMonitor, loadMonitors, evaluateMonitors };
+module.exports = { sourceGroups, sourceGroup, sourceUrl, parseSource, jsonField, defaultProxy, parseProxy, setNetworkProxy, parseMonitor, loadMonitors, evaluateMonitors, parsePosition, positionMetrics };

@@ -41,7 +41,10 @@
         <div class="identity"><strong class="name"></strong><span class="code"></span></div>
         <canvas class="sparkline" width="98" height="44" aria-hidden="true"></canvas>
         <div class="pricing"><strong class="price"></strong><span class="currency"></span></div>
-        <div class="change"></div>
+        <div class="quote-moves">
+          <div class="change"></div>
+          <button class="position-return" type="button" hidden></button>
+        </div>
         <button type="button" class="row-menu" aria-label="标的选项">⋯</button>
       </li>
     </template>
@@ -195,6 +198,25 @@
       <input id="new-code" type="text" maxlength="24" autocomplete="off" spellcheck="false" required>
       <p id="add-hint" class="hint" aria-live="polite"></p>
       <div class="dialog-actions"><button id="add-cancel" type="button">取消</button><button class="primary" type="submit">添加</button></div>
+    </form>
+  </dialog>
+  <dialog id="position-dialog" aria-labelledby="position-title">
+    <form id="position-form" class="settings-form">
+      <h2 id="position-title">合约仓位</h2>
+      <p id="position-symbol"></p>
+      <div class="form-pair">
+        <label>方向<select id="position-side"><option value="long">做多</option><option value="short">做空</option></select></label>
+        <label>杠杆倍数<input id="position-leverage" type="number" min="1" step="any" required></label>
+      </div>
+      <label>开仓价 <span id="position-currency"></span><input id="position-entry" type="number" step="any" required></label>
+      <label>标的数量 <span id="position-quantity-unit"></span><input id="position-quantity" type="number" step="any" required></label>
+      <p class="hint">按线性合约和看板报价估算浮动收益，未计手续费与资金费。</p>
+      <p id="position-error" class="hint error" role="status" hidden></p>
+      <div class="dialog-actions">
+        <button id="position-remove" type="button" hidden>移除仓位</button>
+        <button id="position-cancel" type="button">取消</button>
+        <button id="position-save" class="primary" type="submit">保存仓位</button>
+      </div>
     </form>
   </dialog>
 </body>

@@ -8,6 +8,7 @@ Windows 10 / 11 x64。解压 Windows 压缩包到一个目录，双击里面的 
 - **收起为图标**：点击标题栏的缩小图标，或按 Esc。悬浮图标会置顶，可拖动，位置会自动保存。
 - **隐藏到托盘**：点击标题栏的「−」，或右键悬浮图标选择「隐藏到托盘」。右键托盘图标可以显示面板、显示悬浮图标、刷新行情和退出。
 - **添加自选**：点击「添加」或按 Ctrl+N，选择市场并输入代码，例如 `600519`、`AAPL`、`BTC-USDT` 或 `ETH-USD`。右键标的或点击标的右侧「⋯」可移除。
+- **合约仓位**：右键自选标的，选择「录入合约仓位」。填写多空方向、开仓价、标的数量和杠杆。每个标的可保存一条仓位，看板的涨跌幅下方会显示估算收益率，点击该收益率可编辑或移除仓位。
 - **K 线预览**：将鼠标停在标的上约 0.7 秒，查看最近最多 30 根 K 线、成交量柱和最新一根的开、高、低、收。把鼠标移入预览后可切换日 K、周 K 或月 K。所选周期会保存。
 - **TradingView 图表**：双击标的打开独立窗口并沿用预览所选周期，也可从右键菜单打开，或选中行后按 Enter。同一标的切换周期时复用已有窗口。点击图表右上角的「×」或按 Ctrl+W 关闭图表。支持的交易所和标的由 [TradingView 的行情覆盖](https://www.tradingview.com/data-coverage/)决定。
 - **设置**：点击标题栏齿轮，进入行情来源、价格监控、网络代理或常规设置。常规设置包含面板置顶、涨跌配色和 3 / 5 / 10 / 15 / 30 / 60 秒刷新。F5 立即刷新。
@@ -21,6 +22,8 @@ A 股和美股来自腾讯财经，涨跌幅相对昨收，行情可能延迟。
 - **网络代理**支持系统代理、直连和手动代理。手动地址示例为 `http://127.0.0.1:7890` 或 `socks5://127.0.0.1:1080`，也支持 HTTPS 代理。手动代理地址需包含端口，适用于所有行情请求。
 
 K 线预览从公共历史行情源取数，独立于自定义报价接口。股票来源为腾讯财经，北交所优先使用东方财富。加密货币按交易对使用 [Coinbase](https://docs.cdp.coinbase.com/api-reference/exchange-api/rest-api/products/get-product-candles) 或 [Binance](https://developers.binance.com/en/docs/catalog/core-trading-spot-trading/api/rest-api/market)。Coinbase 的周 K 按 UTC 周一开始聚合日 K，月 K 按 UTC 日历月聚合。成交量单位随市场显示。预览和 TradingView 窗口均使用应用内的网络代理设置。
+
+仓位收益率以线性合约计算。浮动盈亏等于有方向的价格变动乘以标的数量，开仓保证金估算为开仓价乘以数量再除以杠杆。收益率是浮动盈亏除以开仓保证金。估算使用看板报价，未计手续费与资金费。
 
 ## 本地开发
 
@@ -49,16 +52,16 @@ npm start
 
 [Windows 打包工作流](.github/workflows/windows.yml)在分支推送、Pull Request、手动触发或版本标签推送时打包。运行成功后，可在 **Actions → 对应运行 → Artifacts** 下载 `MarketFloat-windows-x64`。
 
-推送与 `package.json` 一致的版本标签（如 `v2.3.4`）后，工作流会把 Windows ZIP 和 SHA-256 文件上传到该版本的 **Releases**。工作流使用 GitHub 自动提供的 `GITHUB_TOKEN`。
+推送与 `package.json` 一致的版本标签（如 `v2.4.0`）后，工作流会把 Windows ZIP 和 SHA-256 文件上传到该版本的 **Releases**。工作流使用 GitHub 自动提供的 `GITHUB_TOKEN`。
 
 首次上传时，在 GitHub 创建空仓库，把下面的 `OWNER` 和 `REPO` 替换为实际值，然后在本地仓库目录中运行：
 
 ```powershell
 git remote add origin https://github.com/OWNER/REPO.git
 git push -u origin main
-git push origin v2.3.4
+git push origin v2.4.0
 ```
 
 如果通过 `git clone MarketFloat.bundle` 恢复仓库，使用 `git remote set-url origin https://github.com/OWNER/REPO.git` 替代上面的 `git remote add`。
 
-当前版本的发布标签为 `v2.3.4`。如果只需要 CI 构建，推送分支即可。后续发版时，用 `npm version patch` 更新版本并创建新标签，随后推送分支和该标签。
+当前版本的发布标签为 `v2.4.0`。如果只需要 CI 构建，推送分支即可。后续发版时，用 `npm version patch` 更新版本并创建新标签，随后推送分支和该标签。
