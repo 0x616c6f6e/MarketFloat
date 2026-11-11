@@ -48,6 +48,7 @@
   }
 
   function open(tab = selectedTab) {
+    window.chartPreview.hide();
     $('watch-page').hidden = true;
     $('watch-footer').hidden = true;
     $('settings-page').hidden = false;

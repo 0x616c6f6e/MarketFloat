@@ -7,6 +7,7 @@
   <title>浮窗看盘</title>
   <link rel="stylesheet" href="ui.css">
   <script src="settings.js" defer></script>
+  <script src="chart-preview.js" defer></script>
   <script src="panel.js" defer></script>
 </head>
 <body class="panel-page">
@@ -50,6 +51,15 @@
     <span id="frequency">30 秒刷新</span>
     <button id="refresh" type="button" title="刷新行情（F5）">↻ 刷新</button>
   </footer>
+  <aside id="chart-preview" class="chart-preview" role="tooltip" hidden>
+    <strong></strong>
+    <div class="preview-subtitle"></div>
+    <p class="preview-message"></p>
+    <canvas class="preview-canvas" role="img" hidden></canvas>
+    <div class="preview-ohlc" hidden><span></span><span></span><span></span><span></span></div>
+    <p class="preview-quote"></p>
+    <div class="preview-hint">双击打开 TradingView</div>
+  </aside>
   <main id="settings-page" aria-labelledby="settings-title" hidden>
     <div class="settings-heading">
       <button id="settings-back" class="secondary" type="button" aria-label="返回行情" title="返回行情（Esc）">‹</button>

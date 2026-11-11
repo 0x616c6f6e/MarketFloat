@@ -8,6 +8,8 @@ Windows 10 / 11 x64。解压 Windows 压缩包到一个目录，双击里面的 
 - **收起为图标**：点击标题栏的缩小图标，或按 Esc。悬浮图标会置顶，可拖动，位置会自动保存。
 - **隐藏到托盘**：点击标题栏的「−」，或右键悬浮图标选择「隐藏到托盘」。右键托盘图标可以显示面板、显示悬浮图标、刷新行情和退出。
 - **添加自选**：点击「添加」或按 Ctrl+N，选择市场并输入代码，例如 `600519`、`AAPL`、`BTC-USDT` 或 `ETH-USD`。右键标的或点击标的右侧「⋯」可移除。
+- **K 线预览**：将鼠标停在标的上约 0.7 秒，查看最近最多 30 根日 K 和最新一根的开、高、低、收。移开鼠标即可关闭。
+- **TradingView 图表**：双击标的打开独立窗口，也可从右键菜单打开，或选中行后按 Enter。支持的交易所和标的由 [TradingView 的行情覆盖](https://www.tradingview.com/data-coverage/)决定。
 - **设置**：点击标题栏齿轮，进入行情来源、价格监控、网络代理或常规设置。常规设置包含面板置顶、涨跌配色和 15 / 30 / 60 秒刷新。F5 立即刷新。
 
 A 股和美股来自腾讯财经，涨跌幅相对昨收，行情可能延迟。加密货币的 USD 和 USDT 交易对分别使用 [Coinbase](https://docs.cdp.coinbase.com/api-reference/exchange-api/rest-api/products/get-product-stats) 和 [Binance](https://developers.binance.com/en/docs/catalog/core-trading-spot-trading/api/rest-api/market)，涨跌幅按 24 小时统计。走势来自本次运行期间的实际取价。网络失败时，已有报价会标为「缓存」。
@@ -17,6 +19,8 @@ A 股和美股来自腾讯财经，涨跌幅相对昨收，行情可能延迟。
 - **行情来源**可分别设置 A 股、美股、加密货币 USD 和 USDT 的内置或自定义来源。自定义来源使用 HTTP(S) GET JSON 接口。URL 示例为 `https://example.com/quote?symbol={code}`。`{code}` 是完整代码，如 `SH600519`、`AAPL` 或 `BTC-USDT`。`{symbol}` 是常见接口格式，如 `sh600519` 或 `BTCUSDT`。加密货币还可使用 `{base}` 和 `{quote}`。例如返回 `{"data":[{"last":123.45,"changePct":2.5}]}` 时，最新价填 `data[0].last`，涨跌幅填 `data[0].changePct`（`2.5` 表示 2.5%）。保存前可用「测试取价」验证字段。
 - **价格监控**可添加大于等于或小于等于目标价的规则。程序只用新获取的报价判断。连续满足条件只提醒一次，价格离开条件后再次进入会重新提醒。面板隐藏到托盘后仍会监控。提醒规则保留最近触发时间及价格，Windows 系统通知的显示受系统设置影响。
 - **网络代理**支持系统代理、直连和手动代理。手动地址示例为 `http://127.0.0.1:7890` 或 `socks5://127.0.0.1:1080`，也支持 HTTPS 代理。手动代理地址需包含端口，适用于所有行情请求。
+
+K 线预览从公共历史行情源取数，独立于自定义报价接口。股票来源为腾讯财经，北交所优先使用东方财富。加密货币按交易对使用 [Coinbase](https://docs.cdp.coinbase.com/api-reference/exchange-api/rest-api/products/get-product-candles) 或 [Binance](https://developers.binance.com/en/docs/catalog/core-trading-spot-trading/api/rest-api/market)。预览和 TradingView 窗口均使用应用内的网络代理设置。
 
 ## 本地开发
 
@@ -45,16 +49,16 @@ npm start
 
 [Windows 打包工作流](.github/workflows/windows.yml)在分支推送、Pull Request、手动触发或版本标签推送时打包。运行成功后，可在 **Actions → 对应运行 → Artifacts** 下载 `MarketFloat-windows-x64`。
 
-推送与 `package.json` 一致的版本标签（如 `v2.1.0`）后，工作流会把 Windows ZIP 和 SHA-256 文件上传到该版本的 **Releases**。工作流使用 GitHub 自动提供的 `GITHUB_TOKEN`。
+推送与 `package.json` 一致的版本标签（如 `v2.2.0`）后，工作流会把 Windows ZIP 和 SHA-256 文件上传到该版本的 **Releases**。工作流使用 GitHub 自动提供的 `GITHUB_TOKEN`。
 
 首次上传时，在 GitHub 创建空仓库，把下面的 `OWNER` 和 `REPO` 替换为实际值，然后在本地仓库目录中运行：
 
 ```powershell
 git remote add origin https://github.com/OWNER/REPO.git
 git push -u origin main
-git push origin v2.1.0
+git push origin v2.2.0
 ```
 
 如果通过 `git clone MarketFloat.bundle` 恢复仓库，使用 `git remote set-url origin https://github.com/OWNER/REPO.git` 替代上面的 `git remote add`。
 
-当前版本的发布标签为 `v2.1.0`。如果只需要 CI 构建，推送分支即可。后续发版时，用 `npm version patch` 更新版本并创建新标签，随后推送分支和该标签。
+当前版本的发布标签为 `v2.2.0`。如果只需要 CI 构建，推送分支即可。后续发版时，用 `npm version patch` 更新版本并创建新标签，随后推送分支和该标签。

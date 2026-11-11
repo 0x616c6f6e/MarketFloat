@@ -93,6 +93,7 @@ h1 { margin: 0; font-size: 23px; font-weight: 750; letter-spacing: -.045em; }
 .watchlist { overflow: auto; scrollbar-width: thin; scrollbar-color: #405371 transparent; list-style: none; margin: 0; padding: 0 0 6px; min-height: 0; }
 .quote-row { height: 53px; margin-bottom: 4px; border: 1px solid #263349; border-radius: 8px; background: var(--surface); }
 .quote-row:hover, .quote-row:focus-within { background: #1d2b3e; border-color: #405572; }
+.quote-row:focus-visible { outline: 1px solid var(--accent); outline-offset: -2px; }
 .identity, .pricing { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .name, .code { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .name { font-size: 14px; font-weight: 750; }
@@ -129,6 +130,27 @@ h1 { margin: 0; font-size: 23px; font-weight: 750; letter-spacing: -.045em; }
   font-size: 16px;
 }
 .row-menu:hover { background: #3a4e68; color: white; }
+.chart-preview {
+  position: fixed;
+  z-index: 3;
+  width: min(345px, calc(100vw - 18px));
+  padding: 10px 11px 8px;
+  border: 1px solid #4b6687;
+  border-radius: 9px;
+  background: #172436;
+  box-shadow: 0 10px 32px #070b14bb;
+  pointer-events: none;
+}
+.chart-preview > strong { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.preview-subtitle, .preview-hint, .preview-quote { color: var(--muted); font-size: 10.5px; }
+.preview-subtitle { margin-top: 3px; }
+.preview-message { margin: 12px 0; color: var(--text); }
+.preview-quote { margin: 6px 0; overflow-wrap: anywhere; }
+.preview-quote.preview-error { color: var(--warn); }
+.preview-canvas { display: block; width: 100%; height: 128px; margin-top: 6px; }
+.preview-ohlc { display: grid; grid-template-columns: repeat(4, 1fr); gap: 3px; color: var(--text); font-size: 10px; font-variant-numeric: tabular-nums; }
+.preview-ohlc span { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.preview-hint { margin-top: 8px; padding-top: 6px; border-top: 1px solid var(--line); }
 .empty { display: grid; place-items: center; min-height: 140px; border: 1px dashed var(--line); border-radius: 8px; color: var(--muted); }
 footer {
   flex: 0 0 48px;

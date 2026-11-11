@@ -1,8 +1,9 @@
-const { app, BrowserWindow, Tray, Menu, ipcMain, screen, session, nativeImage } = require('electron');
+const { app, BrowserWindow, Tray, Menu, ipcMain, screen, session, nativeImage, dialog, shell } = require('electron');
 const fs = require('node:fs');
 const path = require('node:path');
 const { randomUUID } = require('node:crypto');
 const { symbol, defaults, getQuotes } = require('./quotes.cjs');
+const { getHistory, usListing, tradingViewUrl } = require('./charts.cjs');
 const {
   sourceGroups, sourceGroup, parseSource, defaultProxy, parseProxy, setNetworkProxy,
   parseMonitor, loadMonitors, evaluateMonitors,
@@ -13,7 +14,7 @@ const iconSize = 62;
 const panelWidth = 464;
 const panelHeight = 670;
 const intervals = [15, 30, 60];
-let panel, orb, tray, state, drag, timer, statePath, quoteNetwork, activeRefresh;
+let panel, orb, tray, state, drag, timer, statePath, quoteNetwork, chartNetwork, activeRefresh;
 let view = 'panel';
 let closing = false;
 let refreshing = false;
@@ -25,6 +26,8 @@ let quoteRevision = 0;
 const errors = new Map();
 const current = new Set();
 const history = new Map();
+const chartHistory = new Map();
+const chartWindows = new Map();
 
 app.setAppUserModelId('MarketFloat.Desktop');
 
@@ -158,6 +161,74 @@ function clearQuote(key) {
   history.delete(key);
 }
 
+function chartPreview(key) {
+  const item = state.watchlist.find(entry => entry.key === key);
+  if (!item) return { error: '此标的已移出自选。' };
+  if (proxyChanging) return { error: '代理正在切换，请稍后再试。' };
+  const existing = chartHistory.get(key);
+  if (existing && existing.until > Date.now()) return existing.promise;
+  const entry = { until: Infinity, result: null };
+  entry.promise = getHistory(quoteNetwork.fetch.bind(quoteNetwork), item, state.cached[key]?.listing).then(result => {
+    entry.result = result;
+    entry.until = Date.now() + (result.error ? 8000 : 120000);
+    return result;
+  });
+  chartHistory.set(key, entry);
+  return entry.promise;
+}
+
+function isTradingViewUrl(value) {
+  try {
+    const url = new URL(value);
+    return url.protocol === 'https:' && (url.hostname === 'tradingview.com' || url.hostname.endsWith('.tradingview.com'));
+  } catch { return false; }
+}
+
+async function showTradingView(item) {
+  if (closing) return;
+  const existing = chartWindows.get(item.key);
+  if (existing) {
+    if (existing.isMinimized()) existing.restore();
+    existing.show();
+    existing.focus();
+    return;
+  }
+  const area = screen.getDisplayMatching(panel.getBounds()).workArea;
+  const width = Math.min(1220, area.width);
+  const height = Math.min(800, area.height);
+  const chart = new BrowserWindow({
+    x: Math.round(area.x + (area.width - width) / 2), y: Math.round(area.y + (area.height - height) / 2),
+    width, height, title: item.code + ' · TradingView', icon: iconPath, backgroundColor: '#131722',
+    autoHideMenuBar: true,
+    webPreferences: { session: chartNetwork, sandbox: true, contextIsolation: true, nodeIntegration: false },
+  });
+  chart.setMenu(null);
+  chartWindows.set(item.key, chart);
+  chart.once('closed', () => chartWindows.delete(item.key));
+  chart.on('page-title-updated', event => event.preventDefault());
+  chart.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+  let listing = state.cached[item.key]?.listing ?? chartHistory.get(item.key)?.result?.listing;
+  if (item.market === 'us') {
+    const fetch = (url, options) => quoteNetwork.fetch(url, {
+      ...options, signal: AbortSignal.any([options.signal, AbortSignal.timeout(3000)]),
+    });
+    listing = await usListing(fetch, item, listing).catch(() => '');
+  }
+  if (chart.isDestroyed()) return;
+  const url = tradingViewUrl(item, listing);
+  try {
+    await chart.loadURL(url);
+  } catch {
+    if (chart.isDestroyed() || closing) return;
+    const result = await dialog.showMessageBox(chart, {
+      type: 'info', title: 'TradingView', message: '暂时无法加载 TradingView 图表。',
+      buttons: ['在默认浏览器打开', '关闭'], defaultId: 0, cancelId: 1,
+    }).catch(() => null);
+    if (result?.response === 0) await shell.openExternal(url).catch(() => {});
+    if (!chart.isDestroyed()) chart.close();
+  }
+}
+
 function changeSource(group, input) {
   if (!sourceGroups.includes(group)) return { error: '请选择行情市场。' };
   const { value, error } = parseSource(input);
@@ -209,20 +280,26 @@ async function changeProxy(input) {
   proxyChanging = true;
   quoteRevision++;
   activeRefresh?.abort();
+  chartHistory.clear();
   try {
-    await setNetworkProxy(quoteNetwork, value);
+    await applyProxy(value);
     state.proxy = value;
     save();
     publish();
     return saveFailed ? { error: '代理已应用，写入本地设置失败。' } : {};
   } catch {
-    await setNetworkProxy(quoteNetwork, state.proxy).catch(() => {});
+    await applyProxy(state.proxy).catch(() => {});
     return { error: '无法应用此代理设置。' };
   } finally {
     proxyChanging = false;
     pending = false;
     void refresh({ forceAgain: true });
   }
+}
+
+async function applyProxy(proxy) {
+  await setNetworkProxy(quoteNetwork, proxy);
+  await setNetworkProxy(chartNetwork, proxy);
 }
 
 function saveMonitor(input) {
@@ -367,6 +444,11 @@ function registerIpc() {
   const fromPanel = (event, action) => event.sender === panel.webContents && action();
   const fromOrb = (event, action) => event.sender === orb.webContents && action();
   ipcMain.handle('snapshot', event => fromPanel(event, snapshot));
+  ipcMain.handle('chart:preview', (event, key) => fromPanel(event, () => chartPreview(key)));
+  ipcMain.on('chart:open', (event, key) => fromPanel(event, () => {
+    const item = state.watchlist.find(entry => entry.key === key);
+    if (item) void showTradingView(item);
+  }));
   ipcMain.handle('source:save', (event, group, input) => fromPanel(event, () => changeSource(group, input)));
   ipcMain.handle('source:test', (event, group, input, code) => fromPanel(event, () => testSource(group, input, code)));
   ipcMain.handle('proxy:save', (event, input) => fromPanel(event, () => changeProxy(input)));
@@ -387,13 +469,18 @@ function registerIpc() {
     const item = state.watchlist.find(entry => entry.key === key);
     if (!item) return;
     const monitorCount = state.monitors.filter(monitor => monitor.key === key).length;
-    Menu.buildFromTemplate([{ label: '移出自选 · ' + item.code + (monitorCount ? '（含 ' + monitorCount + ' 条提醒）' : ''), click: () => {
-      state.watchlist = state.watchlist.filter(entry => entry !== item);
-      state.monitors = state.monitors.filter(monitor => monitor.key !== key);
-      clearQuote(key);
-      save();
-      publish();
-    } }]).popup({ window: panel });
+    Menu.buildFromTemplate([
+      { label: '打开 TradingView 图表', click: () => void showTradingView(item) },
+      { type: 'separator' },
+      { label: '移出自选 · ' + item.code + (monitorCount ? '（含 ' + monitorCount + ' 条提醒）' : ''), click: () => {
+        state.watchlist = state.watchlist.filter(entry => entry !== item);
+        state.monitors = state.monitors.filter(monitor => monitor.key !== key);
+        clearQuote(key);
+        chartHistory.delete(key);
+        save();
+        publish();
+      } },
+    ]).popup({ window: panel });
   }));
   ipcMain.on('setting', (event, key, value) => fromPanel(event, () => {
     if (key === 'interval' && intervals.includes(value)) { state.interval = value; schedule(); }
@@ -451,9 +538,15 @@ else {
     statePath = path.join(app.getPath('userData'), 'marketfloat.json');
     state = load();
     quoteNetwork = session.fromPartition('marketfloat-quotes', { cache: false });
-    await setNetworkProxy(quoteNetwork, state.proxy).catch(() => {
+    chartNetwork = session.fromPartition('marketfloat-tradingview');
+    chartNetwork.webRequest.onBeforeRequest((details, callback) => {
+      callback({ cancel: details.resourceType === 'mainFrame' && !isTradingViewUrl(details.url) });
+    });
+    chartNetwork.setPermissionRequestHandler((_contents, _permission, callback) => callback(false));
+    chartNetwork.setPermissionCheckHandler(() => false);
+    await applyProxy(state.proxy).catch(() => {
       state.proxy = defaultProxy;
-      return setNetworkProxy(quoteNetwork, state.proxy);
+      return applyProxy(state.proxy);
     });
     panel = makeWindow({ width: panelWidth, height: panelHeight, backgroundColor: '#101724', alwaysOnTop: state.pinned }, 'panel.html');
     orb = makeWindow({

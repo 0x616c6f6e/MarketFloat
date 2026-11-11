@@ -3,7 +3,6 @@ const $ = selector => document.querySelector(selector);
 const marketNames = { cn: 'A 股', us: '美股', crypto: '加密货币' };
 const examples = { cn: '例如 600519、SH000001、BJ920002', us: '例如 AAPL、BRK.B、SPY', crypto: '例如 BTC-USDT、ETH-USD' };
 const timeFormat = new Intl.DateTimeFormat('zh-CN', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
-const timestampFormat = new Intl.DateTimeFormat('zh-CN', { dateStyle: 'short', timeStyle: 'medium', hour12: false });
 const decimal = new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const rows = new Map();
 const filters = [...document.querySelectorAll('[data-market]')];
@@ -62,12 +61,7 @@ function updateRow(row, item) {
   change.className = 'change ' + direction;
   change.textContent = Number.isFinite(pct) ? (pct > 0 ? '+' : '') + pct.toFixed(2) + '%' : '—';
   row.querySelector('.row-menu').setAttribute('aria-label', name + '选项');
-  row.title = [
-    item.source + ' · ' + item.code,
-    quote?.marketTime && '行情源时间 ' + quote.marketTime,
-    quote?.readAt && '本机取数 ' + timestampFormat.format(quote.readAt),
-    item.error,
-  ].filter(Boolean).join('\n');
+  row.setAttribute('aria-label', name + ' ' + displayCode + ' · ' + price + ' ' + item.currency + ' · 按 Enter 打开 TradingView');
   sparkline(row.querySelector('canvas'), item.samples, direction);
 }
 
@@ -78,6 +72,7 @@ function render() {
   const keys = new Set(visible.map(item => item.key));
   for (const [key, row] of rows) {
     if (keys.has(key)) continue;
+    window.chartPreview.hide(row);
     row.remove();
     rows.delete(key);
   }
@@ -86,9 +81,11 @@ function render() {
     let row = rows.get(item.key);
     if (!row) {
       row = $('#row-template').content.firstElementChild.cloneNode(true);
-      const showMenu = event => { event.preventDefault(); api.quoteMenu(item.key); };
+      const showMenu = event => { event.preventDefault(); window.chartPreview.hide(); api.quoteMenu(item.key); };
       row.querySelector('.row-menu').addEventListener('click', showMenu);
       row.addEventListener('contextmenu', showMenu);
+      row.dataset.key = item.key;
+      window.chartPreview.attach(row, () => ({ item: state.items.find(entry => entry.key === item.key), redUp: state.redUp }));
       rows.set(item.key, row);
       list.append(row);
     }
@@ -129,6 +126,7 @@ function setState(value) {
 }
 
 function chooseMarket(value) {
+  window.chartPreview.hide();
   filter = value;
   list.scrollTop = 0;
   render();
@@ -142,6 +140,7 @@ function hint() {
 function showAdd() {
   if (dialog.open) return;
   window.marketFloatSettings.close();
+  window.chartPreview.hide();
   $('#new-market').value = filter === 'all' ? 'cn' : filter;
   $('#new-code').value = '';
   hint();

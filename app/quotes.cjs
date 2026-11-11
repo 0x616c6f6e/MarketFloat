@@ -54,6 +54,7 @@ function tencentQuotes(data) {
       /^(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})$/, '$1-$2-$3 $4:$5:$6');
     result.set(match[1].toLowerCase(), {
       price, name: fields[1]?.trim(), marketTime, readAt: Date.now(),
+      listing: fields[2]?.trim(),
       change: number(fields[32]) ?? percentage(price, number(fields[4])),
     });
   }
