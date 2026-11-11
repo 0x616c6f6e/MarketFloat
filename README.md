@@ -49,4 +49,6 @@ git push -u origin main
 git push origin v2.0.0
 ```
 
+如果通过 `git clone MarketFloat.bundle` 恢复仓库，使用 `git remote set-url origin https://github.com/OWNER/REPO.git` 替代上面的 `git remote add`。
+
 当前仓库已有本地 `v2.0.0` 标签。如果只需要 CI 构建，推送分支即可。后续发版时，用 `npm version patch` 更新版本并创建新标签，随后推送分支和该标签。
