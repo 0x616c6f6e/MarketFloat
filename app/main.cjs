@@ -13,7 +13,7 @@ const iconPath = path.join(__dirname, 'MarketFloat.ico');
 const iconSize = 62;
 const panelWidth = 464;
 const panelHeight = 670;
-const intervals = [15, 30, 60];
+const intervals = [5, 10, 15, 30, 60];
 let panel, orb, tray, state, drag, timer, statePath, quoteNetwork, chartNetwork, activeRefresh;
 let view = 'panel';
 let closing = false;
