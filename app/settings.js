@@ -7,6 +7,7 @@
     us: { example: 'AAPL', description: '腾讯财经 · 涨跌幅相对昨收，报价可能延迟。' },
     usd: { example: 'BTC-USD', description: 'Coinbase · 24 小时涨跌幅。' },
     usdt: { example: 'BTC-USDT', description: 'Binance · 24 小时涨跌幅。' },
+    perp: { example: 'NVDAUSDT.P', description: 'Binance 永续 · 24 小时涨跌幅。' },
   };
   const fields = ['url', 'price', 'change', 'previous', 'name'];
   const dateFormat = new Intl.DateTimeFormat('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });

@@ -1,4 +1,4 @@
-const { getQuotes } = require('./quotes.cjs');
+const { getQuotes, binanceMarketUrl } = require('./quotes.cjs');
 
 const limit = 30;
 const dayMs = 24 * 60 * 60 * 1000;
@@ -30,6 +30,8 @@ function tradingViewUrl(item, listing = '', period = 'day') {
   let ticker = item.code;
   if (item.market === 'cn') {
     ticker = chinaExchanges[item.code.slice(0, 2)] + ':' + item.code.slice(2);
+  } else if (item.market === 'perp') {
+    ticker = 'BINANCE:' + item.code;
   } else if (item.market === 'crypto') {
     ticker = (item.currency === 'USDT' ? 'BINANCE:' : 'COINBASE:') + item.code.replace('-', '');
   } else if (validUsListing(listing, item.code)) {
@@ -152,11 +154,11 @@ async function coinbaseHistory(fetch, item, period) {
 
 async function cryptoHistory(fetch, item, period) {
   if (item.currency === 'USDT') {
-    const url = 'https://data-api.binance.vision/api/v3/klines?symbol=' + item.code.replace('-', '') +
+    const url = binanceMarketUrl(item, 'klines') +
       '&interval=' + chartPeriods[period].binance + '&limit=' + limit;
     const rows = await json(fetch, url);
     return {
-      source: 'Binance', volumeUnit: item.code.split('-')[0],
+      source: item.source, volumeUnit: item.base ?? item.code.split('-')[0],
       candles: normalizeCandles(rows, ([time, open, high, low, close, volume]) => candle(dateFromMs(Number(time)), open, high, low, close, volume)),
     };
   }
@@ -170,7 +172,8 @@ async function getHistory(fetch, item, knownListing, period = 'day') {
       const beijing = await beijingHistory(fetch, item, period).catch(() => null);
       if (beijing?.candles.length) return { ...beijing, candles: beijing.candles.slice(-limit) };
     }
-    const result = await (item.market === 'crypto' ? cryptoHistory(fetch, item, period) : stockHistory(fetch, item, knownListing, period));
+    const result = await (item.market === 'cn' || item.market === 'us'
+      ? stockHistory(fetch, item, knownListing, period) : cryptoHistory(fetch, item, period));
     if (result.error) return result;
     if (result.candles.length) return { ...result, candles: result.candles.slice(-limit) };
     return { error: '行情源暂未提供该标的在所选周期的 K 线。' };

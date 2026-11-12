@@ -327,8 +327,8 @@ async function testSource(group, input, code) {
   if (proxyChanging) return { error: '代理正在切换，请稍后再试。' };
   const { value, error } = parseSource(input);
   if (error) return { error };
-  const samples = { cn: 'SH600519', us: 'AAPL', usd: 'BTC-USD', usdt: 'BTC-USDT' };
-  const market = group === 'cn' || group === 'us' ? group : 'crypto';
+  const samples = { cn: 'SH600519', us: 'AAPL', usd: 'BTC-USD', usdt: 'BTC-USDT', perp: 'NVDAUSDT.P' };
+  const market = group === 'usd' || group === 'usdt' ? 'crypto' : group;
   const item = symbol(market, typeof code === 'string' && code.trim() ? code : samples[group]);
   if (!item || sourceGroup(item) !== group) return { error: '测试代码与选定市场不匹配。' };
   const result = await getQuotes(quoteNetwork.fetch.bind(quoteNetwork), [item], value ? { [group]: value } : {});
@@ -533,7 +533,7 @@ function registerIpc() {
     save();
     publish();
     void refresh({ forceAgain: true });
-    return null;
+    return { market: item.market };
   }));
   ipcMain.on('quote-menu', (event, key) => fromPanel(event, () => {
     const item = state.watchlist.find(entry => entry.key === key);

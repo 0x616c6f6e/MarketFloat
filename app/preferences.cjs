@@ -1,4 +1,4 @@
-const sourceGroups = ['cn', 'us', 'usd', 'usdt'];
+const sourceGroups = ['cn', 'us', 'usd', 'usdt', 'perp'];
 const defaultProxy = { mode: 'system', address: '' };
 const jsonFields = ['price', 'change', 'previous', 'name'];
 const token = /\{(code|symbol|base|quote)\}/g;
@@ -12,8 +12,8 @@ function sourceUrl(template, item) {
   const [base, quote] = item.code.split('-');
   const values = {
     code: item.code,
-    symbol: item.market === 'cn' ? item.code.toLowerCase() : item.code.replace('-', ''),
-    base,
+    symbol: item.market === 'perp' ? item.base + item.currency : item.market === 'cn' ? item.code.toLowerCase() : item.code.replace('-', ''),
+    base: item.base ?? base,
     quote: quote ?? item.currency,
   };
   return template.replace(token, (_match, name) => encodeURIComponent(values[name]));

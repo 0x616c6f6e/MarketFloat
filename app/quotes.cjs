@@ -1,7 +1,7 @@
 const { TextDecoder } = require('node:util');
 const { sourceGroup, sourceUrl, jsonField } = require('./preferences.cjs');
 
-const names = { cn: 'A 股', us: '美股', crypto: '加密货币' };
+const names = { cn: 'A 股', us: '美股', crypto: '加密货币', perp: 'USDT 永续' };
 const validMarkets = Object.keys(names);
 const defaults = [
   ['cn', 'SH000001', '上证指数'], ['cn', 'SH600519', '贵州茅台'], ['cn', 'SZ300750', '宁德时代'],
@@ -12,6 +12,14 @@ const defaults = [
 function symbol(market, input, name = '') {
   if (!validMarkets.includes(market) || typeof input !== 'string') return null;
   let code = input.trim().toUpperCase();
+  if (market === 'perp' || code.endsWith('USDT.P')) {
+    const match = /^(?:BINANCE:)?([A-Z0-9]{1,16})-?USDT(?:\.P)?$/.exec(code);
+    if (!match) return null;
+    const base = match[1];
+    code = base + 'USDT.P';
+    return { key: 'perp/' + code, market: 'perp', code, base, name: typeof name === 'string' ? name.slice(0, 80) : '',
+      currency: 'USDT', source: 'Binance 永续' };
+  }
   if (market === 'cn') {
     code = code.replace(/^(\d{6})\.(SH|SZ|BJ)$/, '$2$1');
     if (/^[0-9]{6}$/.test(code)) {
@@ -92,10 +100,17 @@ async function stocks(fetch, items) {
   }
 }
 
+function binanceMarketUrl(item, endpoint) {
+  if (item.market === 'perp') {
+    return 'https://fapi.binance.com/fapi/v1/' + endpoint + '?symbol=' + item.base + 'USDT';
+  }
+  return 'https://data-api.binance.vision/api/v3/' + endpoint + '?symbol=' + item.code.replace('-', '');
+}
+
 async function crypto(fetch, item) {
   const usdt = item.currency === 'USDT';
   const url = usdt
-    ? 'https://data-api.binance.vision/api/v3/ticker/24hr?symbol=' + item.code.replace('-', '')
+    ? binanceMarketUrl(item, 'ticker/24hr')
     : 'https://api.exchange.coinbase.com/products/' + item.code + '/stats';
   try {
     const data = await (await request(fetch, url)).json();
@@ -125,9 +140,8 @@ async function customQuote(fetch, item, config) {
 }
 
 async function getQuotes(fetch, items, sources = {}) {
-  const builtIn = items.filter(item => !sources[sourceGroup(item)]);
-  const shares = builtIn.filter(item => item.market !== 'crypto');
-  const singles = items.filter(item => item.market === 'crypto' || sources[sourceGroup(item)]);
+  const shares = items.filter(item => (item.market === 'cn' || item.market === 'us') && !sources[sourceGroup(item)]);
+  const singles = items.filter(item => item.market === 'crypto' || item.market === 'perp' || sources[sourceGroup(item)]);
   const jobs = [];
   for (let i = 0; i < shares.length; i += 30) jobs.push(stocks(fetch, shares.slice(i, i + 30)));
   if (singles.length) {
@@ -148,4 +162,4 @@ async function getQuotes(fetch, items, sources = {}) {
   return new Map((await Promise.all(jobs)).flat());
 }
 
-module.exports = { symbol, defaults, names, getQuotes };
+module.exports = { symbol, defaults, names, getQuotes, binanceMarketUrl };

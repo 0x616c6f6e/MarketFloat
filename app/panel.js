@@ -1,7 +1,7 @@
 const api = window.marketFloat;
 const $ = selector => document.querySelector(selector);
-const marketNames = { cn: 'A 股', us: '美股', crypto: '加密货币' };
-const examples = { cn: '例如 600519、SH000001、BJ920002', us: '例如 AAPL、BRK.B、SPY', crypto: '例如 BTC-USDT、ETH-USD' };
+const marketNames = { cn: 'A 股', us: '美股', crypto: '加密货币', perp: 'USDT 永续' };
+const examples = { cn: '例如 600519、SH000001、BJ920002', us: '例如 AAPL、BRK.B、SPY', crypto: '例如 BTC-USDT、ETH-USD', perp: '例如 NVDAUSDT.P、BTCUSDT.P' };
 const timeFormat = new Intl.DateTimeFormat('zh-CN', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
 const decimal = new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const signed = new Intl.NumberFormat('en-US', { signDisplay: 'exceptZero', minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -173,7 +173,8 @@ function showPosition(key) {
   positionKey = key;
   $('#position-symbol').textContent = item.code;
   $('#position-currency').textContent = '(' + item.currency + ')';
-  $('#position-quantity-unit').textContent = item.market === 'crypto' ? '(' + item.code.split('-')[0] + ')' : '';
+  const base = item.base ?? (item.market === 'crypto' ? item.code.split('-')[0] : '');
+  $('#position-quantity-unit').textContent = base ? '(' + base + ')' : '';
   $('#position-side').value = item.position?.side ?? 'long';
   $('#position-entry').value = item.position?.entryPrice ?? '';
   $('#position-quantity').value = item.position?.quantity ?? '';
@@ -224,14 +225,14 @@ $('#add-form').addEventListener('submit', async event => {
   submit.disabled = true;
   const market = $('#new-market').value;
   try {
-    const error = await api.add(market, $('#new-code').value);
-    if (error) {
+    const result = await api.add(market, $('#new-code').value);
+    if (typeof result === 'string') {
       $('#add-hint').classList.add('error');
-      $('#add-hint').textContent = error;
+      $('#add-hint').textContent = result;
       $('#new-code').focus();
       return;
     }
-    if (filter !== 'all' && filter !== market) chooseMarket(market);
+    if (filter !== 'all' && filter !== result.market) chooseMarket(result.market);
     list.scrollTop = list.scrollHeight;
     dialog.close();
   } finally { submit.disabled = false; }

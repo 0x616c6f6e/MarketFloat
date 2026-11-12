@@ -26,6 +26,7 @@
       <button type="button" data-market="cn" aria-pressed="false">A 股</button>
       <button type="button" data-market="us" aria-pressed="false">美股</button>
       <button type="button" data-market="crypto" aria-pressed="false">加密货币</button>
+      <button type="button" data-market="perp" aria-pressed="false">永续</button>
     </nav>
     <section class="section-heading" aria-labelledby="watchlist-title">
       <h1 id="watchlist-title">自选行情</h1>
@@ -93,6 +94,7 @@
             <select id="source-group">
               <option value="cn">A 股</option><option value="us">美股</option>
               <option value="usd">加密货币 · USD</option><option value="usdt">加密货币 · USDT</option>
+              <option value="perp">USDT 永续</option>
             </select>
           </label>
           <label>数据来源
@@ -193,6 +195,7 @@
       <label for="new-market">市场</label>
       <select id="new-market">
         <option value="cn">A 股</option><option value="us">美股</option><option value="crypto">加密货币</option>
+        <option value="perp">USDT 永续</option>
       </select>
       <label for="new-code">代码</label>
       <input id="new-code" type="text" maxlength="24" autocomplete="off" spellcheck="false" required>

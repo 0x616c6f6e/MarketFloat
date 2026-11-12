@@ -78,6 +78,7 @@ main { display: flex; flex: 1; flex-direction: column; min-height: 0; padding: 0
 h1 { margin: 0; font-size: 23px; font-weight: 750; letter-spacing: -.045em; }
 #count { font-size: 11px; color: var(--muted); }
 .primary { border: 1px solid transparent; border-radius: 7px; background: var(--accent); color: #112623; font-weight: 750; }
+#watch-page .filters { grid-template-columns: repeat(5, 1fr); }
 .primary:hover { background: #9df3dc; }
 #add { margin-left: auto; height: 33px; padding: 0 11px; }
 .column-headings, .quote-row {
