@@ -11,7 +11,7 @@ Windows 10 / 11 x64。解压 Windows 压缩包到一个目录，双击里面的 
 - **USDT 永续**：在「添加自选」中输入 `NVDAUSDT.P` 或 `BINANCE:NVDAUSDT.P`，即可添加 Binance USDT 永续合约。看板报价、K 线和仓位收益率均以该合约为标的。选择「USDT 永续」市场后，也可以直接输入 `NVDAUSDT`。
 - **合约仓位**：右键自选标的，选择「录入合约仓位」。填写多空方向、开仓价、标的数量和杠杆。每个标的可保存一条仓位，看板的涨跌幅下方会显示估算收益率，点击该收益率可编辑或移除仓位。
 - **K 线预览**：将鼠标停在标的上约 0.7 秒，查看最近最多 30 根 K 线、成交量柱和最新一根的开、高、低、收。把鼠标移入预览后可切换日 K、周 K 或月 K。所选周期会保存。
-- **TradingView 图表**：双击标的打开独立窗口并沿用预览所选周期，也可从右键菜单打开，或选中行后按 Enter。同一标的切换周期时复用已有窗口。点击图表右上角的「×」或按 Ctrl+W 关闭图表。支持的交易所和标的由 [TradingView 的行情覆盖](https://www.tradingview.com/data-coverage/)决定。
+- **TradingView 图表**：双击标的打开独立窗口，默认显示 15 分钟 K 线。手动选择预览周期后，独立窗口沿用所选周期。也可从右键菜单打开，或选中行后按 Enter。同一标的切换周期时复用已有窗口。点击图表右上角的「×」或按 Ctrl+W 关闭图表。支持的交易所和标的由 [TradingView 的行情覆盖](https://www.tradingview.com/data-coverage/)决定。
 - **设置**：点击标题栏齿轮，进入行情来源、价格监控、网络代理或常规设置。常规设置包含面板置顶、涨跌配色和 3 / 5 / 10 / 15 / 30 / 60 秒刷新。F5 立即刷新。
 
 A 股和美股来自腾讯财经，涨跌幅相对昨收，行情可能延迟。加密货币的 USD 和 USDT 交易对分别使用 [Coinbase](https://docs.cdp.coinbase.com/api-reference/exchange-api/rest-api/products/get-product-stats) 和 [Binance](https://developers.binance.com/en/docs/catalog/core-trading-spot-trading/api/rest-api/market)，涨跌幅按 24 小时统计。走势来自本次运行期间的实际取价。网络失败时，已有报价会标为「缓存」。

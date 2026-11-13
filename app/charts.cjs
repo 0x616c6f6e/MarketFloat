@@ -26,7 +26,7 @@ function isChartPeriod(period) {
   return typeof period === 'string' && Object.hasOwn(chartPeriods, period);
 }
 
-function tradingViewUrl(item, listing = '', period = 'day') {
+function tradingViewUrl(item, listing = '', period) {
   let ticker = item.code;
   if (item.market === 'cn') {
     ticker = chinaExchanges[item.code.slice(0, 2)] + ':' + item.code.slice(2);
@@ -40,7 +40,7 @@ function tradingViewUrl(item, listing = '', period = 'day') {
   }
   const url = new URL('https://www.tradingview.com/chart/');
   url.searchParams.set('symbol', ticker);
-  url.searchParams.set('interval', chartPeriods[isChartPeriod(period) ? period : 'day'].tradingView);
+  url.searchParams.set('interval', isChartPeriod(period) ? chartPeriods[period].tradingView : '15');
   return url.href;
 }
 

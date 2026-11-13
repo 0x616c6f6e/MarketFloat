@@ -6,7 +6,7 @@ contextBridge.exposeInMainWorld('marketFloat', {
   add: (market, code) => ipcRenderer.invoke('add', market, code),
   quoteMenu: key => ipcRenderer.send('quote-menu', key),
   chartPreview: (key, period) => ipcRenderer.invoke('chart:preview', key, period),
-  openChart: (key, period) => ipcRenderer.send('chart:open', key, period),
+  openChart: key => ipcRenderer.send('chart:open', key),
   setting: (key, value) => ipcRenderer.send('setting', key, value),
   saveSource: (group, input) => ipcRenderer.invoke('source:save', group, input),
   testSource: (group, input, code) => ipcRenderer.invoke('source:test', group, input, code),

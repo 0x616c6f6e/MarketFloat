@@ -202,7 +202,7 @@
   function open(read) {
     const { item } = read();
     hide();
-    if (item) api.openChart(item.key, period);
+    if (item) api.openChart(item.key);
   }
 
   preview.addEventListener('pointerenter', () => { clearPending(); clearTimeout(dismissTimer); });

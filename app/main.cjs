@@ -69,13 +69,18 @@ function load() {
     const { value } = parseSource(saved?.sources?.[group]);
     if (value) sources[group] = value;
   }
+  // Older versions saved "day" even if the user never chose a period.
+  let selectedChartPeriod = saved?.selectedChartPeriod;
+  if (selectedChartPeriod === undefined && ['week', 'month'].includes(saved?.chartPeriod)) {
+    selectedChartPeriod = saved.chartPeriod;
+  }
   return {
     watchlist, cached, positions, interval: intervals.includes(saved?.interval) ? saved.interval : 30,
     pinned: saved?.pinned !== false, redUp: saved?.redUp !== false,
     panel: saved?.panel, orb: saved?.orb, sources,
     proxy: parseProxy(saved?.proxy).value ?? defaultProxy,
     monitors: loadMonitors(saved?.monitors, watchlist),
-    chartPeriod: isChartPeriod(saved?.chartPeriod) ? saved.chartPeriod : 'day',
+    selectedChartPeriod: isChartPeriod(selectedChartPeriod) ? selectedChartPeriod : null,
   };
 }
 
@@ -98,7 +103,7 @@ function snapshot() {
     })),
     interval: state.interval, pinned: state.pinned, redUp: state.redUp, refreshing, updatedAt,
     errors: errors.size, current: current.size, saveFailed,
-    sources: state.sources, proxy: state.proxy, monitors: state.monitors, chartPeriod: state.chartPeriod,
+    sources: state.sources, proxy: state.proxy, monitors: state.monitors, chartPeriod: state.selectedChartPeriod ?? 'day',
   };
 }
 
@@ -189,7 +194,7 @@ function chartListing(key) {
   return '';
 }
 
-function chartPreview(key, period = state.chartPeriod) {
+function chartPreview(key, period = state.selectedChartPeriod ?? 'day') {
   const item = state.watchlist.find(entry => entry.key === key);
   if (!item) return { error: '此标的已移出自选。' };
   if (!isChartPeriod(period)) return { error: 'K 线周期无效。' };
@@ -228,8 +233,9 @@ function syncFloatingOrder() {
   if (!orb.isDestroyed() && orb.isAlwaysOnTop() !== orbPinned) orb.setAlwaysOnTop(orbPinned);
 }
 
-async function showTradingView(item, period = state.chartPeriod) {
+async function showTradingView(item) {
   if (closing) return;
+  const period = state.selectedChartPeriod;
   let entry = chartWindows.get(item.key);
   if (!entry) {
     const area = screen.getDisplayMatching(panel.getBounds()).workArea;
@@ -262,7 +268,7 @@ async function showTradingView(item, period = state.chartPeriod) {
     });
     chart.on('page-title-updated', event => event.preventDefault());
     chart.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
-    entry = { chart, period: null, request: null, listing: '' };
+    entry = { chart, request: null, listing: '' };
     chartWindows.set(item.key, entry);
   }
   const { chart } = entry;
@@ -514,9 +520,9 @@ function registerIpc() {
   const fromOrb = (event, action) => event.sender === orb.webContents && action();
   ipcMain.handle('snapshot', event => fromPanel(event, snapshot));
   ipcMain.handle('chart:preview', (event, key, period) => fromPanel(event, () => chartPreview(key, period)));
-  ipcMain.on('chart:open', (event, key, period) => fromPanel(event, () => {
+  ipcMain.on('chart:open', (event, key) => fromPanel(event, () => {
     const item = state.watchlist.find(entry => entry.key === key);
-    if (item) void showTradingView(item, isChartPeriod(period) ? period : state.chartPeriod);
+    if (item) void showTradingView(item);
   }));
   ipcMain.handle('source:save', (event, group, input) => fromPanel(event, () => changeSource(group, input)));
   ipcMain.handle('source:test', (event, group, input, code) => fromPanel(event, () => testSource(group, input, code)));
@@ -562,8 +568,8 @@ function registerIpc() {
     else if (key === 'pinned' && typeof value === 'boolean') { state.pinned = value; syncFloatingOrder(); }
     else if (key === 'redUp' && typeof value === 'boolean') state.redUp = value;
     else if (key === 'chartPeriod' && isChartPeriod(value)) {
-      if (state.chartPeriod === value) return;
-      state.chartPeriod = value;
+      if (state.selectedChartPeriod === value) return;
+      state.selectedChartPeriod = value;
     }
     else return;
     save();
