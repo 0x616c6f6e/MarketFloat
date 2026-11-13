@@ -53,16 +53,16 @@ npm start
 
 [Windows 打包工作流](.github/workflows/windows.yml)在分支推送、Pull Request、手动触发或版本标签推送时打包。运行成功后，可在 **Actions → 对应运行 → Artifacts** 下载 `MarketFloat-windows-x64`。
 
-推送与 `package.json` 一致的版本标签（如 `v2.5.0`）后，工作流会把 Windows ZIP 和 SHA-256 文件上传到该版本的 **Releases**。工作流使用 GitHub 自动提供的 `GITHUB_TOKEN`。
+推送与 `package.json` 一致的版本标签（如 `v2.6.0`）后，工作流会把 Windows ZIP 和 SHA-256 文件上传到该版本的 **Releases**。工作流使用 GitHub 自动提供的 `GITHUB_TOKEN`。
 
 首次上传时，在 GitHub 创建空仓库，把下面的 `OWNER` 和 `REPO` 替换为实际值，然后在本地仓库目录中运行：
 
 ```powershell
 git remote add origin https://github.com/OWNER/REPO.git
 git push -u origin main
-git push origin v2.5.0
+git push origin v2.6.0
 ```
 
 如果通过 `git clone MarketFloat.bundle` 恢复仓库，使用 `git remote set-url origin https://github.com/OWNER/REPO.git` 替代上面的 `git remote add`。
 
-当前版本的发布标签为 `v2.5.0`。如果只需要 CI 构建，推送分支即可。后续发版时，用 `npm version patch` 更新版本并创建新标签，随后推送分支和该标签。
+当前版本的发布标签为 `v2.6.0`。如果只需要 CI 构建，推送分支即可。后续发版时，用 `npm version patch` 更新版本并创建新标签，随后推送分支和该标签。
